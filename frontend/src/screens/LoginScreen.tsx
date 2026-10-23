@@ -16,6 +16,93 @@ import { UserSession } from '../types/auth';
 import { theme } from '../theme/theme';
 import { API_BASE_URL } from '../config/api';
 
+// Comptes prédéfinis pour la démo (US01 & US02 & US04 & US17)
+export const DEMO_ACCOUNTS = [
+  {
+    key: 'prof',
+    label: 'Espace Enseignant',
+    sub: 'Prof. EL HASSANI (Feuille d\'appel & Émargement)',
+    icon: '👨‍🏫',
+    email: 'prof@upf.ac.ma',
+    pass: '123456',
+    bgColor: theme.colors.mintBg,
+    textColor: theme.colors.mintText,
+    session: {
+      id: 2,
+      email: 'prof@upf.ac.ma',
+      nom: 'EL HASSANI',
+      prenom: 'Mohammed',
+      role: 'ENSEIGNANT' as const,
+      enseignantId: 1,
+      matricule: 'ENS-001',
+      departement: 'Informatique',
+      token: 'session_prof_el_hassani',
+    },
+  },
+  {
+    key: 'amine',
+    label: 'Espace Étudiant (Amine)',
+    sub: 'Classe GI4-A • Suivi personnel des absences',
+    icon: '👨‍🎓',
+    email: 'etudiant@upf.ac.ma',
+    pass: '123456',
+    bgColor: theme.colors.blueBg,
+    textColor: theme.colors.blueText,
+    session: {
+      id: 3,
+      email: 'etudiant@upf.ac.ma',
+      nom: 'NAHLI',
+      prenom: 'Amine',
+      role: 'ETUDIANT' as const,
+      etudiantId: 1,
+      matricule: 'ETU-001',
+      cne: 'N130001001',
+      groupeCode: 'GI4-A',
+      token: 'session_etudiant_amine',
+    },
+  },
+  {
+    key: 'aya',
+    label: 'Espace Étudiante (Aya)',
+    sub: 'Classe GI4-A • Dépôt de justificatif médical',
+    icon: '👩‍🎓',
+    email: 'aya@upf.ac.ma',
+    pass: '123456',
+    bgColor: theme.colors.amberBg,
+    textColor: theme.colors.amberText,
+    session: {
+      id: 4,
+      email: 'aya@upf.ac.ma',
+      nom: 'BOUHSINI',
+      prenom: 'Aya',
+      role: 'ETUDIANT' as const,
+      etudiantId: 2,
+      matricule: 'ETU-002',
+      cne: 'N130001002',
+      groupeCode: 'GI4-A',
+      token: 'session_etudiante_aya',
+    },
+  },
+  {
+    key: 'admin',
+    label: 'Espace Administration',
+    sub: 'Direction UPF • Gestion groupes & Assiduité',
+    icon: '👨‍💼',
+    email: 'admin@upf.ac.ma',
+    pass: 'admin123',
+    bgColor: '#F1F5F9',
+    textColor: '#334155',
+    session: {
+      id: 1,
+      email: 'admin@upf.ac.ma',
+      nom: 'ADMIN',
+      prenom: 'Principal',
+      role: 'ADMIN' as const,
+      token: 'session_admin_upf',
+    },
+  },
+];
+
 interface LoginScreenProps {
   onLoginSuccess: (session: UserSession) => void;
 }
@@ -37,41 +124,57 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     setErrorMessage(null);
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = motDePasse.trim();
+
     try {
-      const session = await loginUser(email, motDePasse);
+      // Timeout court (1.5s) : si le téléphone n'accède pas au port 8080 du PC (tunnel/pare-feu)
+      const loginPromise = loginUser(cleanEmail, cleanPass);
+      const timeoutPromise = new Promise<UserSession>((_, reject) =>
+        setTimeout(() => reject(new Error('Serveur non joignable')), 1500)
+      );
+
+      const session = await Promise.race([loginPromise, timeoutPromise]);
+      console.log(`[Login] Connexion serveur réussie (${session.role}) pour ${cleanEmail}`);
       onLoginSuccess(session);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Erreur lors de la connexion');
+      console.warn('[Login] Tentative fallback locale pour :', cleanEmail);
+
+      // Vérifier si les identifiants saisis correspondent à l'un des 4 comptes officiels UPF
+      const matched = DEMO_ACCOUNTS.find(
+        (acc) => acc.email.toLowerCase() === cleanEmail && acc.pass === cleanPass
+      );
+
+      if (matched) {
+        console.log(`[Login] Accès accordé pour ${matched.label} -> Rôle: ${matched.session.role}`);
+        onLoginSuccess(matched.session);
+        return;
+      }
+
+      setErrorMessage(
+        err.message?.includes('Serveur non joignable') || err.message?.includes('Network request failed')
+          ? 'Serveur Spring Boot en cours de chargement. Cliquez ci-dessous sur l\'espace souhaité en 1 clic !'
+          : err.message || 'Identifiants invalides.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Connexion directe en 1 CLIC pour la démo (Enseignant, Étudiant Amine, Étudiante Aya, Admin)
-  const handleInstantQuickLogin = async (
-    targetEmail: string,
-    targetPass: string,
-    fallbackSession: UserSession
-  ) => {
-    setEmail(targetEmail);
-    setMotDePasse(targetPass);
-    setLoading(true);
+  // Connexion directe INSTANTANÉE en 1 Clic (0 ms d'attente, navigation immédiate)
+  const handleInstantQuickLogin = (demo: typeof DEMO_ACCOUNTS[0]) => {
+    setEmail(demo.email);
+    setMotDePasse(demo.pass);
     setErrorMessage(null);
+    console.log(`[QuickLogin ⚡] Accès direct à l'${demo.label} (${demo.session.role})`);
+    
+    // 1. Navigation immédiate vers l'espace concerné
+    onLoginSuccess(demo.session);
 
-    try {
-      // 1. Tenter la connexion réelle sur le Backend Spring Boot
-      const session = await loginUser(targetEmail, targetPass);
-      onLoginSuccess(session);
-    } catch (err: any) {
-      console.warn(
-        `[QuickLogin] Connexion directe via profil de secours (${fallbackSession.role}) :`,
-        err.message
-      );
-      // 2. Si le backend met du temps ou n'est pas encore joignable, connecter directement au bon espace !
-      onLoginSuccess(fallbackSession);
-    } finally {
-      setLoading(false);
-    }
+    // 2. Synchronisation en arrière-plan sans bloquer l'UI
+    loginUser(demo.email, demo.pass).catch(() => {
+      // Mode autonome transparent
+    });
   };
 
   return (
@@ -98,7 +201,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <View style={styles.infoBox}>
               <Text style={styles.infoIcon}>ℹ️</Text>
               <Text style={styles.infoText}>
-                Connectez-vous avec vos identifiants ou cliquez ci-dessous sur l'espace souhaité en 1 clic.
+                Connectez-vous ou cliquez sur un des 4 espaces ci-dessous pour entrer instantanément.
               </Text>
             </View>
 
@@ -162,123 +265,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           <View style={styles.demoCard}>
             <Text style={styles.demoTitle}>⚡ Accès direct en 1 Clic (Cliquez pour entrer) :</Text>
 
-            {/* 1. ESPACE ENSEIGNANT (Amine) */}
-            <TouchableOpacity
-              style={[styles.demoRow, { backgroundColor: theme.colors.mintBg }]}
-              onPress={() =>
-                handleInstantQuickLogin('prof@upf.ac.ma', '123456', {
-                  id: 2,
-                  email: 'prof@upf.ac.ma',
-                  nom: 'EL HASSANI',
-                  prenom: 'Mohammed',
-                  role: 'ENSEIGNANT',
-                  enseignantId: 1,
-                  departement: 'Informatique',
-                  token: 'session_prof',
-                })
-              }
-              activeOpacity={0.7}
-            >
-              <View style={styles.demoLeft}>
-                <Text style={styles.demoIcon}>👨‍🏫</Text>
-                <View>
-                  <Text style={[styles.demoTag, { color: theme.colors.mintText }]}>
-                    Espace Enseignant
-                  </Text>
-                  <Text style={styles.demoSub}>Prof. EL HASSANI (Appel & Gestion)</Text>
+            {DEMO_ACCOUNTS.map((account) => (
+              <TouchableOpacity
+                key={account.key}
+                style={[styles.demoRow, { backgroundColor: account.bgColor }]}
+                onPress={() => handleInstantQuickLogin(account)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.demoLeft}>
+                  <Text style={styles.demoIcon}>{account.icon}</Text>
+                  <View>
+                    <Text style={[styles.demoTag, { color: account.textColor }]}>
+                      {account.label}
+                    </Text>
+                    <Text style={styles.demoSub}>{account.sub}</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={[styles.enterArrow, { color: theme.colors.mintText }]}>Entrer ›</Text>
-            </TouchableOpacity>
-
-            {/* 2. ESPACE ÉTUDIANT (Amine NAHLI) */}
-            <TouchableOpacity
-              style={[styles.demoRow, { backgroundColor: theme.colors.blueBg }]}
-              onPress={() =>
-                handleInstantQuickLogin('etudiant@upf.ac.ma', '123456', {
-                  id: 3,
-                  email: 'etudiant@upf.ac.ma',
-                  nom: 'NAHLI',
-                  prenom: 'Amine',
-                  role: 'ETUDIANT',
-                  etudiantId: 1,
-                  matricule: 'ETU-001',
-                  cne: 'N130001001',
-                  groupeCode: 'GI4-A',
-                  token: 'session_etudiant_amine',
-                })
-              }
-              activeOpacity={0.7}
-            >
-              <View style={styles.demoLeft}>
-                <Text style={styles.demoIcon}>👨‍🎓</Text>
-                <View>
-                  <Text style={[styles.demoTag, { color: theme.colors.blueText }]}>
-                    Espace Étudiant (Amine)
-                  </Text>
-                  <Text style={styles.demoSub}>Classe GI4-A • Suivi de mes absences</Text>
-                </View>
-              </View>
-              <Text style={[styles.enterArrow, { color: theme.colors.blueText }]}>Entrer ›</Text>
-            </TouchableOpacity>
-
-            {/* 3. ESPACE ÉTUDIANTE (Aya BOUHSINI) */}
-            <TouchableOpacity
-              style={[styles.demoRow, { backgroundColor: theme.colors.amberBg }]}
-              onPress={() =>
-                handleInstantQuickLogin('aya@upf.ac.ma', '123456', {
-                  id: 4,
-                  email: 'aya@upf.ac.ma',
-                  nom: 'BOUHSINI',
-                  prenom: 'Aya',
-                  role: 'ETUDIANT',
-                  etudiantId: 2,
-                  matricule: 'ETU-002',
-                  cne: 'N130001002',
-                  groupeCode: 'GI4-A',
-                  token: 'session_etudiante_aya',
-                })
-              }
-              activeOpacity={0.7}
-            >
-              <View style={styles.demoLeft}>
-                <Text style={styles.demoIcon}>👩‍🎓</Text>
-                <View>
-                  <Text style={[styles.demoTag, { color: theme.colors.amberText }]}>
-                    Espace Étudiante (Aya)
-                  </Text>
-                  <Text style={styles.demoSub}>Classe GI4-A • Dépôt de justificatif</Text>
-                </View>
-              </View>
-              <Text style={[styles.enterArrow, { color: theme.colors.amberText }]}>Entrer ›</Text>
-            </TouchableOpacity>
-
-            {/* 4. ESPACE ADMINISTRATION */}
-            <TouchableOpacity
-              style={[styles.demoRow, { backgroundColor: '#F1F5F9' }]}
-              onPress={() =>
-                handleInstantQuickLogin('admin@upf.ac.ma', 'admin123', {
-                  id: 1,
-                  email: 'admin@upf.ac.ma',
-                  nom: 'ADMIN',
-                  prenom: 'Principal',
-                  role: 'ADMIN',
-                  token: 'session_admin',
-                })
-              }
-              activeOpacity={0.7}
-            >
-              <View style={styles.demoLeft}>
-                <Text style={styles.demoIcon}>👨‍💼</Text>
-                <View>
-                  <Text style={[styles.demoTag, { color: '#334155' }]}>
-                    Espace Administration
-                  </Text>
-                  <Text style={styles.demoSub}>Pilotage & Statistiques globales</Text>
-                </View>
-              </View>
-              <Text style={[styles.enterArrow, { color: '#334155' }]}>Entrer ›</Text>
-            </TouchableOpacity>
+                <Text style={[styles.enterArrow, { color: account.textColor }]}>Entrer ›</Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* Pied de page Serveur */}
