@@ -1,84 +1,81 @@
-# 📱 Absence App — Application Mobile de Gestion des Absences
+# Absence App — Système Mobile de Gestion des Absences & Justificatifs
 
 > **Université Privée de Fès (UPF) — GI4**  
 > **Module :** Génie Logiciel & Design Patterns (TP 3 : Méthodologie Agile – Scrum)  
-> **Auteurs :** Bouhsini Aya & Nahli Amine  
+> **Auteurs :** Nahli Amine & Bouhsini Aya  
 > **Base de données :** Neon PostgreSQL (Cloud)  
+> **Architecture :** Monorepo (Spring Boot 3 + React Native Expo)
 
 ---
 
-## 🔑 Comptes & Données de Test Disponibles (Seeders)
+## Organisation du Projet & Découpage Séquentiel Agile
 
-La base de données Neon contient déjà un jeu complet de données de test pré-insérées :
+Le projet suit une **méthodologie séquentielle stricte par phase** pour éliminer toute dépendance circulaire :
 
-### 1. Comptes Utilisateurs
+1. **Partie 1 — Amine NAHLI (US01 à US09 — 37 SP) :**
+   * **Cœur Opérationnel & Justificatifs (Terminé intégralement en premier).**
+   * Authentification multi-profils, feuille d'appel enseignant avec blocage anti-doublon, rectification, consultation et détail des absences pour l'étudiant, et cycle complet des justificatifs (dépôt ≤ 5 Mo, suivi en direct, validation/rejet avec motif).
+   * Amine livre une application 100% opérationnelle avec des absences et justificatifs réels.
+
+2. **Partie 2 — Aya BOUHSINI (US10 à US18 — 41 SP) :**
+   * **Analytics, Administration Globale, Emploi du temps & Notifications (Démarre après la Partie 1).**
+   * Aya attend la livraison de la Partie 1 pour exploiter directement les données réelles enregistrées : historique des absences prof, calcul automatique du taux d'absentéisme et alertes de seuil, emploi du temps étudiant, administration complète (étudiants, enseignants, filières), tableaux de bord décisionnels BI de la direction et notifications push.
+
+![Répartition Séquentielle des User Stories](docs/Répartition%20des%20User%20Stories%20Amine%20et%20Aya.png)
+
+Consulter la documentation détaillée dans [docs/](docs/) :
+* [**README_AMINE.md**](docs/README_AMINE.md) : Feuille de route d'Amine (US01 à US09).
+* [**README_AYA.md**](docs/README_AYA.md) : Feuille de route d'Aya (US10 à US18).
+* [**REPARTITION_SEQUENTIELLE.md**](docs/REPARTITION_SEQUENTIELLE.md) : Synthèse méthodologique et diagramme de flux séquentiel.
+* [**DATABASE_SCHEMA.md**](docs/DATABASE_SCHEMA.md) : Schéma relationnel complet Neon PostgreSQL (Mermaid ERD).
+
+---
+
+## Tableau Récapitulatif des 18 User Stories (78 SP)
+
+| Phase | Responsable | Périmètre | User Stories Assignées | Total SP |
+| :---: | :---: | :--- | :--- | :---: |
+| **Partie 1**<br>*(En premier)* | **Amine NAHLI** | **Cœur Opérationnel & Justificatifs** | **US01** Authentification & Sécurité (3 SP)<br>**US02** Liste des étudiants pour l'appel (3 SP)<br>**US03** Saisie d'absence & anti-doublon (5 SP)<br>**US04** Consultation absences étudiant (5 SP)<br>**US05** Détail d'une absence (2 SP)<br>**US06** Dépôt justificatif dématérialisé (8 SP)<br>**US07** Suivi en direct du justificatif (3 SP)<br>**US08** Modification/rectification absence (3 SP)<br>**US09** Validation / Rejet justificatif (5 SP) | **37 SP** |
+| **Partie 2**<br>*(Après Amine)* | **Aya BOUHSINI** | **Analytics, Admin & Notifications** | **US10** Historique des absences prof (5 SP)<br>**US11** Taux absentéisme & alertes seuil (5 SP)<br>**US12** Consultation emploi du temps (5 SP)<br>**US13** Création étudiant par l'admin (3 SP)<br>**US14** Modification fiche étudiant (2 SP)<br>**US15** Création compte enseignant (3 SP)<br>**US16** Gestion groupes & affectations (5 SP)<br>**US17** Statistiques globales & graphiques BI (8 SP)<br>**US18** Notification push absence (5 SP) | **41 SP** |
+| **TOTAL** | — | **Couverture Globale du Projet** | **18 User Stories** | **78 SP** |
+
+---
+
+## Comptes & Données de Démonstration (Seeders Neon DB)
 
 | Rôle | Nom & Prénom | Email (Identifiant) | Mot de passe | Détails / Identifiants |
 | :--- | :--- | :--- | :---: | :--- |
-| 👨‍🏫 **Enseignant** | EL HASSANI Mohammed | `prof@upf.ac.ma` | `123456` | Matricule : `ENS-001` (Génie Logiciel) |
-| 👨‍🎓 **Étudiant** | NAHLI Amine | `etudiant@upf.ac.ma` | `123456` | Matricule : `ETU-001`, CNE : `N130001001` (GI4-A) |
-| 👩‍🎓 **Étudiante** | BOUHSINI Aya | `aya@upf.ac.ma` | `123456` | Matricule : `ETU-002`, CNE : `N130001002` (GI4-A) |
-| 👨‍🎓 **Étudiant** | BENNANI Yassine | `yassine@upf.ac.ma` | `123456` | Matricule : `ETU-003`, CNE : `N130001003` (GI4-A) |
-| 👩‍🎓 **Étudiante** | IDRISSI Salma | `salma@upf.ac.ma` | `123456` | Matricule : `ETU-004`, CNE : `N130001004` (GI4-A) |
-| 👨‍💼 **Administrateur** | ADMIN Principal | `admin@upf.ac.ma` | `admin123` | Gestion globale, statistiques & utilisateurs |
+| **Enseignant** | EL HASSANI Mohammed | `prof@upf.ac.ma` | `123456` | Matricule : `ENS-001` (Génie Logiciel) |
+| **Étudiant** | NAHLI Amine | `etudiant@upf.ac.ma` | `123456` | Matricule : `ETU-001`, CNE : `N130001001` (GI4-A) |
+| **Étudiante** | BOUHSINI Aya | `aya@upf.ac.ma` | `123456` | Matricule : `ETU-002`, CNE : `N130001002` (GI4-A) |
+| **Étudiant** | BENNANI Yassine | `yassine@upf.ac.ma` | `123456` | Matricule : `ETU-003`, CNE : `N130001003` (GI4-A) |
+| **Étudiante** | IDRISSI Salma | `salma@upf.ac.ma` | `123456` | Matricule : `ETU-004`, CNE : `N130001004` (GI4-A) |
+| **Administrateur** | ADMIN Principal | `admin@upf.ac.ma` | `admin123` | Pilotage global, filières & scolarité |
+
+* **Groupe de test :** `GI4-A` (Génie Informatique 4ème Année).
+* **Matière active :** `GL401` — Génie Logiciel & Méthodes Agiles (Salle Labo 3).
 
 ---
 
-### 2. Données Pédagogiques Pré-configurées
+## Démarrage Rapide
 
-* 📚 **Groupe :** `GI4-A` — *Génie Informatique 4ème Année - Groupe A* (Promotion 2026-2027).
-* 📖 **Matière :** `GL401` — *Génie Logiciel & Méthodes Agiles* (Coeff: 4, 45h).
-* 📅 **Séance active :** TP Génie Logiciel aujourd'hui de 08h30 à 10h15 (Salle : *Labo Informatique 3*).
-* ❌ **Absence de test initiale :** 1 absence enregistrée pour **Amine Nahli** (statut `NON_JUSTIFIEE`), utile pour tester immédiatement l'affichage des absences et le dépôt de justificatif.
+### Option A — 1-Clic sous Windows (Recommandée)
+Double-cliquez sur le script racine :
+* **[`start.bat`](start.bat)** : Lance en simultané le backend Spring Boot (Port 8080) et le frontend Expo Metro (Port 8081).
+* **[`start-tunnel.bat`](start-tunnel.bat)** : Variante avec Expo Tunnel (si votre téléphone est en 4G ou si le pare-feu isole les ports).
 
----
+### Option B — Lancement Manuel
 
-## 🏗️ Architecture du Projet
-
-Le projet est structuré en **Monorepo** :
-
-```text
-absence-app/
-├── backend/             # API REST Spring Boot 3 (Java 17, JPA, Neon PostgreSQL)
-├── frontend/            # Application Mobile Expo (React Native, TypeScript)
-└── docs/                # Feuilles de route et documentation de l'équipe
-    ├── README_AMINE.md      # 🧑‍💻 Tâches & User Stories pour Amine (Enseignant & Socle)
-    ├── README_AYA.md        # 👩‍💻 Tâches & User Stories pour Aya (Étudiant, Justificatifs & Admin)
-    └── DATABASE_SCHEMA.md   # 🗄️ Schéma relationnel complet et diagramme Mermaid ERD
-```
-
----
-
-## 👥 Répartition du Travail Agile (39 SP chacun)
-
-* 🚀 [**Consulter la Feuille de Route d'Amine (Personne 1)**](file:///d:/4eme%20annee/s7/gl-dp/tp3/absence-app/docs/README_AMINE.md)  
-  *Socle commun, Authentification, Espace Enseignant, Saisie d'appel anti-doublon, Validation des justificatifs.*
-* ⚡ [**Consulter la Feuille de Route d'Aya (Personne 2)**](file:///d:/4eme%20annee/s7/gl-dp/tp3/absence-app/docs/README_AYA.md)  
-  *Espace Étudiant, Dashboard des absences, Upload des pièces jointes justificatives (PDF/Photos), Module Administration & Statistiques.*
-
----
-
-## 🚀 Démarrage Rapide
-
-### ⚡ Méthode 1-Clic (Recommandée sous Windows) :
-Double-cliquez simplement sur le fichier **[`start.bat`](file:///d:/4eme%20annee/s7/gl-dp/tp3/absence-app/start.bat)** à la racine du projet !  
-Il va ouvrir automatiquement les deux terminaux (Spring Boot + Expo) en simultané.
-
----
-
-### Ou manuellement par terminal :
-
-#### 1. Démarrer le Backend (Spring Boot)
+#### 1. Démarrer le Backend (Spring Boot 3)
 ```powershell
 cd backend
 mvn spring-boot:run
 ```
-*L'API est accessible sur `http://localhost:8080/api`.*
+*API disponible sur `http://localhost:8080/api`.*
 
-### 2. Démarrer le Frontend (Expo React Native)
+#### 2. Démarrer le Frontend (React Native Expo)
 ```powershell
 cd frontend
 npm start
 ```
-*Scanner le QR Code avec l'application **Expo Go** sur votre téléphone ou taper `w` pour tester dans le navigateur web.*  
-*(L'adresse IP de votre PC est détectée automatiquement sans configuration manuelle).*
+*Scannez le QR Code avec **Expo Go** sur votre smartphone ou tapez `w` pour tester dans le navigateur.*
