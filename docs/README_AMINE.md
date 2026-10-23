@@ -1,84 +1,81 @@
-# 📋 Feuille de Route & Tâches — Amine NAHLI (Phase 1 : Socle & Cœur Métier)
+# 📋 Feuille de Route & Tâches — Amine NAHLI (Phase 1 : US01 à US09)
 
-> **Rôle :** Responsable du Socle Technique, Authentification, Gestion Académique & Cœur Métier de l'Émargement  
-> **Volume Agile :** 39 Story Points (Sprint 1 — 100% autonome et séquentiel)  
+> **Rôle :** Responsable du Cœur Opérationnel — Authentification, Émargement & Cycle Complet des Justificatifs  
+> **Périmètre Strict :** **US01 jusqu'à US09**  
+> **Volume Agile :** 37 Story Points (Sprint 1)  
 > **Ordre d'exécution :** 🚀 **PARTIE 1 — Réalisée et terminée intégralement en premier**  
-> **Principe clé :** Amine réalise l'intégralité de la chaîne d'émargement sans aucune dépendance envers Aya. Lorsque la Partie 1 est finie, elle est livrée et validée.  
-> **Branche Git :** `feature/amine-phase1-core`
+> **Règle d'or :** Amine développe, teste et livre l'ensemble des User Stories US01 à US09. Aya attend qu'Amine ait entièrement terminé avant de commencer sa phase.  
+> **Branche Git :** `feature/amine-phase1-us01-us09`
 
 ---
 
 ## 🎯 Objectif Général de la Partie 1
 
-Amine met en place le socle d'authentification, le modèle relationnel PostgreSQL, l'administration de base des étudiants et des groupes, ainsi que **tout le cycle de prise d'absence côté enseignant** (sélection de groupe, appel interactif, blocage anti-doublon, modification, historique, calcul du taux d'absentéisme et notifications push).
+Amine met en place le socle complet de l'application : l'authentification multi-rôles, la gestion de l'appel pour les enseignants avec blocage anti-doublon, ainsi que l'intégralité du cycle de vie des absences et des pièces justificatives (consultation par l'étudiant, téléversement de certificat, suivi du statut et arbitrage/validation par l'enseignant ou la scolarité).
 
 ---
 
-## 📌 User Stories prises en charge par Amine (39 SP)
+## 📌 User Stories prises en charge par Amine (US01 à US09 — 37 SP)
 
-| ID | Intitulé de la User Story | Priorité | Estimation | Statut |
+| ID | Intitulé de la User Story | Rôle Concerné | Estimation | Priorité |
 | :--- | :--- | :---: | :---: | :---: |
-| **US01** | Authentification & Sécurité (Connexion Enseignant / Étudiant / Admin) | **Haute** | **3 SP** | ✅ Réalisé |
-| **US02** | Consulter la liste des étudiants d'un groupe pour l'appel | **Haute** | **3 SP** | ✅ Réalisé |
-| **US03** | Enregistrer l'absence d'un étudiant avec règle anti-doublon absolue | **Haute** | **5 SP** | ✅ Réalisé |
-| **US08** | Modifier / rectifier une absence en cas d'erreur de saisie | **Moyenne** | **3 SP** | ✅ Réalisé |
-| **US10** | Consulter l'historique des absences par groupe et séance (vue prof) | **Moyenne** | **5 SP** | ✅ Réalisé |
-| **US11** | Calculer le taux d'absentéisme d'un étudiant avec alerte de seuil | **Moyenne** | **5 SP** | ✅ Réalisé |
-| **US13** | Créer des comptes étudiants par l'administration (avec matricule/groupe) | **Haute** | **3 SP** | ✅ Réalisé |
-| **US14** | Mettre à jour et modifier la fiche d'un étudiant (coordonnées, groupe) | **Basse** | **2 SP** | ✅ Réalisé |
-| **US16** | Gérer les groupes, filières et affectations de séances de cours | **Haute** | **5 SP** | ✅ Réalisé |
-| **US18** | Notification push automatique lors de l'enregistrement d'une absence | **Moyenne** | **5 SP** | ✅ Réalisé |
+| **US01** | Se connecter à l'application (Authentification & Sécurité multi-profils) | Tous | **3 SP** | Haute |
+| **US02** | Consulter la liste des étudiants d'un groupe pour réaliser l'appel | Enseignant | **3 SP** | Haute |
+| **US03** | Enregistrer l'absence d'un étudiant avec blocage strict de doublon | Enseignant | **5 SP** | Haute |
+| **US04** | Consulter la liste de ses propres absences sur le tableau de bord mobile | Étudiant | **5 SP** | Haute |
+| **US05** | Consulter le détail d'une absence (matière, séance, professeur, motif) | Étudiant | **2 SP** | Moyenne |
+| **US06** | Déposer un justificatif dématérialisé (Upload PDF, JPG, PNG ≤ 5 Mo) | Étudiant | **8 SP** | Haute |
+| **US07** | Consulter et suivre en direct le statut de son justificatif (En attente / Validé / Rejeté) | Étudiant | **3 SP** | Moyenne |
+| **US08** | Modifier / rectifier une absence en cas d'erreur de saisie | Enseignant | **3 SP** | Moyenne |
+| **US09** | Valider ou refuser un justificatif d'absence avec motif de décision | Enseignant / Admin | **5 SP** | Haute |
 
-**Total Phase 1 (Amine) : 39 Story Points**
+**Sous-total Partie 1 (Amine) : 37 Story Points**
 
 ---
 
-## 🛠️ Travail Réalisé par Couche (Partie 1)
+## 🛠️ Travail à Réaliser par Couche (Partie 1)
 
-### 1. Socle Commun & Base de Données
-- [x] **Modèle de données relationnel (Spring Boot JPA & Neon PostgreSQL) :**
-  - Entité `User` (`email`, `motDePasse`, `role`, `nom`, `prenom`, `actif`).
-  - Entité `Groupe` (`code`, `nom`, `filiere`, `anneeScolaire`).
-  - Entité `Etudiant` (`matricule`, `cne`, lien `User`, lien `Groupe`).
-  - Entité `Enseignant` (`matricule`, `departement`, lien `User`).
-  - Entité `Matiere` et `Seance` (`dateSeance`, `heureDebut`, `heureFin`, `salle`, `typeSeance`).
-  - Entité `Absence` (`etudiant`, `seance`, `enseignant`, `typePresence`, `dureeMinutes`, `statut`).
-- [x] **Contraintes d'intégrité strictes :**
-  - Contrainte d'unicité `UNIQUE(etudiant_id, seance_id)` pour empêcher tout doublon.
-- [x] **Initialisation des données de démo (`data.sql`) :**
-  - Comptes actifs pour Professeur Amine, Étudiants GI4-A, Administrateur.
+### 1. Socle Commun & Base de Données (Neon PostgreSQL & Spring Boot)
+- [x] **Modèle relationnel JPA :**
+  - Entité `User` (email, mot de passe hashé, rôles : ENSEIGNANT, ETUDIANT, ADMIN).
+  - Entité `Groupe` (code, nom, filière, année scolaire).
+  - Entité `Etudiant` (matricule, cne, lien User, lien Groupe).
+  - Entité `Enseignant` (matricule, département, lien User).
+  - Entité `Seance` (date, créneau, salle, type cours/TD/TP).
+  - Entité `Absence` (lien étudiant, lien séance, type de présence, statut).
+  - Entité `Justificatif` (nom fichier, chemin stockage, taille ≤ 5 Mo, statut EN_ATTENTE/VALIDE/REFUSE, motif).
+- [x] **Contraintes d'intégrité métier :**
+  - Contrainte `UNIQUE(etudiant_id, seance_id)` (anti-doublon d'appel).
+  - Contrainte `UNIQUE(absence_id)` (un justificatif unique par absence).
 
 ### 2. Backend Spring Boot (`backend/`)
 - [x] **`AuthController` (US01) :**
-  - `POST /api/auth/login` : vérification email/mot de passe avec hash BCrypt et renvoi de la session utilisateur.
-- [x] **`GroupeController` & `AdminController` (US13, US14, US16) :**
-  - `GET /api/groupes` : récupération des groupes pédagogiques (ex: `GI4-A`, `GI4-B`).
-  - `GET /api/groupes/{id}/etudiants` : liste des étudiants rattachés au groupe.
-  - `POST /api/admin/etudiants` : enregistrement d'un nouvel étudiant avec matricule unique.
-  - `PUT /api/admin/etudiants/{id}` : mise à jour des coordonnées de l'étudiant.
-- [x] **`AbsenceController` (US02, US03, US08, US10, US11, US18) :**
-  - `POST /api/absences` : enregistrement de la feuille d'appel avec validation anti-doublon (retourne `409 Conflict` si doublon).
-  - `PUT /api/absences/{id}` : rectification immédiate du statut d'une absence (erreur de saisie).
-  - `GET /api/absences/enseignant/{id}` : historique complet des feuilles d'appel émargées.
-  - `GET /api/statistiques/etudiant/{id}/taux` : calcul du pourcentage d'absences et déclencheur d'alerte (> 20%).
-  - `POST /api/notifications/push` : notification envoyée à l'étudiant marqué absent.
+  - `POST /api/auth/login` : authentification et retour de session.
+- [x] **`GroupeController` (US02) :**
+  - `GET /api/groupes/{id}/etudiants` : liste des étudiants pour l'émargement.
+- [x] **`AbsenceController` (US03, US04, US05, US08) :**
+  - `POST /api/absences` : enregistrement avec vérification anti-doublon (409 Conflict si doublon).
+  - `GET /api/absences/etudiant/{id}` : liste des absences de l'étudiant connecté.
+  - `GET /api/absences/{id}` : détail complet d'une absence.
+  - `PUT /api/absences/{id}` : rectification d'une absence.
+- [ ] **`JustificatifController` (US06, US07, US09) :**
+  - `POST /api/justificatifs/upload` : réception `multipart/form-data` avec vérification de taille (< 5 Mo) et de format (PDF, PNG, JPG).
+  - `GET /api/justificatifs/etudiant/{id}` : suivi des justificatifs soumis.
+  - `PUT /api/justificatifs/{id}/decision` : validation ou refus avec enregistrement du motif.
 
 ### 3. Frontend Mobile React Native (`frontend/`)
-- [x] **Écran de Connexion Minimaliste (`LoginScreen.tsx` - US01) :**
-  - Design institutionnel clair, sans émojis, icônes vectorielles Feather, accès direct multi-rôles.
-- [x] **Écran d'Émargement Enseignant (`EnseignantHomeScreen.tsx` - US02, US03, US08, US10) :**
-  - Sélection du groupe et créneau horaire.
-  - Bascule Présent / Absent / Retard interactive.
-  - Compteur dynamique en temps réel (Présents vs Absents).
-  - Enregistrement immédiat avec confirmation et résilience hors-ligne.
-- [x] **Composant d'En-tête (`HeaderBar.tsx`) :**
-  - Affichage du profil connecté et bouton de déconnexion sécurisé.
+- [x] **Écran de Connexion (`LoginScreen.tsx` - US01) :** Formulaire clair, icônes vectorielles, aiguillage par rôle.
+- [x] **Écran d'Émargement Enseignant (`EnseignantHomeScreen.tsx` - US02, US03, US08) :** Appel interactif, puces Présent/Absent, blocage doublons.
+- [x] **Écran Tableau de Bord Étudiant (`EtudiantHomeScreen.tsx` - US04, US05, US07) :** Synthèse d'assiduité, liste d'absences, badges d'état.
+- [ ] **Écran de Dépôt & Validation de Justificatif (US06, US09) :** Sélecteur de fichier/photo et modal d'arbitrage.
 
 ---
 
-## 🔒 Clôture de la Partie 1 & Passage de Relais
-Lorsque la Partie 1 est terminée :
-1. La base de données contient des étudiants, groupes, enseignants et des absences réelles enregistrées.
-2. L'API backend est 100% fonctionnelle sur les endpoints d'appel.
-3. Amine livre la branche `main`.
-4. **Aya peut démarrer la Partie 2 immédiatement sans jamais solliciter Amine.**
+## 🔒 Livrable & Relais vers la Partie 2
+Dès qu'Amine a terminé les **User Stories 01 à 09**, l'application possède :
+1. Un système d'authentification fonctionnel.
+2. Des enseignants qui peuvent faire l'appel et modifier les absences.
+3. Des étudiants qui voient leurs absences et peuvent déposer des justificatifs.
+4. Un mécanisme de validation / rejet des justificatifs opérationnel.
+
+> **Amine valide et livre sa branche sur `main`. Aya peut alors démarrer la Partie 2.**

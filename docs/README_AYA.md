@@ -1,85 +1,90 @@
-# 📋 Feuille de Route & Tâches — Aya BOUHSINI (Phase 2 : Espace Étudiant, Justificatifs & Analytics)
+# 📋 Feuille de Route & Tâches — Aya BOUHSINI (Phase 2 : US10 à US18)
 
-> **Rôle :** Responsable Espace Étudiant, Cycle Complet des Justificatifs (Dépôt + Décision), Emploi du temps & Reporting BI  
-> **Volume Agile :** 39 Story Points (Sprint 2 — 100% autonome sur base stable)  
-> **Ordre d'exécution :** ⚡ **PARTIE 2 — Démarre après achèvement complet de la Partie 1 d'Amine**  
-> **Principe clé :** Aya prend en charge l'expérience étudiant et détient **100% du cycle des justificatifs** (dépôt, suivi et validation/rejet). Aucun aller-retour ni dépendance envers Amine.  
-> **Branche Git :** `feature/aya-phase2-etudiant-justificatifs`
+> **Rôle :** Responsable Historiques, Analytics Avancés, Emploi du Temps, Administration & Notifications  
+> **Périmètre Strict :** **US10 jusqu'à US18**  
+> **Volume Agile :** 41 Story Points (Sprint 2)  
+> **Ordre d'exécution :** ⚡ **PARTIE 2 — Démarre après l'achèvement complet de la Partie 1 (Amine : US01 à US09)**  
+> **Règle d'or :** Aya attend qu'Amine ait terminé et livré les User Stories US01 à US09. Aya prend ensuite le relais sur une base stable et opérationnelle.  
+> **Branche Git :** `feature/aya-phase2-us10-us18`
 
 ---
 
 ## 🎯 Objectif Général de la Partie 2
 
-Aya s'appuie sur la base opérationnelle livrée par Amine (où des séances et absences réelles existent déjà). Elle développe l'espace mobile étudiant, l'emploi du temps, la chaîne complète dématérialisée des pièces justificatives (upload, stockage sécurisé, arbitrage scolarité avec motif), et le tableau de bord décisionnel d'absentéisme global de l'établissement.
+Aya intervient sur une application dont le cœur fonctionne déjà (utilisateurs connectés, absences saisies, justificatifs traités). Elle prend en charge :
+1. Les modules d'historique et de surveillance (journal enseignant, taux d'absentéisme et alertes).
+2. L'emploi du temps interactif des étudiants.
+3. La gestion administrative complète (création/modification d'étudiants, enseignants, groupes et affectations).
+4. Le tableau de bord décisionnel d'assiduité globale (graphiques BI).
+5. Le système d'alertes et de notifications push en temps réel.
 
 ---
 
-## 📌 User Stories prises en charge par Aya (39 SP)
+## 📌 User Stories prises en charge par Aya (US10 à US18 — 41 SP)
 
-| ID | Intitulé de la User Story | Priorité | Estimation | Statut |
+| ID | Intitulé de la User Story | Rôle Concerné | Estimation | Priorité |
 | :--- | :--- | :---: | :---: | :---: |
-| **US04** | Consulter la liste de ses propres absences (tableau de bord étudiant) | **Haute** | **5 SP** | ✅ Réalisé |
-| **US05** | Consulter le détail d'une absence (matière, enseignant, créneau, statut) | **Moyenne** | **2 SP** | ✅ Réalisé |
-| **US06** | Déposer un justificatif dématérialisé (Upload PDF, JPG, PNG ≤ 5 Mo) | **Haute** | **8 SP** | 🔄 En cours |
-| **US07** | Suivre en direct le statut de son justificatif (En attente / Validé / Refusé) | **Moyenne** | **3 SP** | ✅ Réalisé |
-| **US09** | Traiter, valider ou refuser un justificatif avec motif (vue scolarité/admin) | **Haute** | **5 SP** | 🔄 En cours |
-| **US12** | Consulter son emploi du temps hebdomadaire (matières, salles, horaires) | **Moyenne** | **5 SP** | 🔄 En cours |
-| **US15** | Créer des comptes enseignants par l'administration (avec département) | **Moyenne** | **3 SP** | ✅ Réalisé |
-| **US17** | Consulter les statistiques globales d'assiduité sous forme graphique | **Haute** | **8 SP** | ✅ Réalisé |
+| **US10** | Consulter l'historique complet des absences par groupe et matière | Enseignant | **5 SP** | Moyenne |
+| **US11** | Consulter le taux d'absentéisme d'un étudiant avec alerte de seuil (> 20%) | Enseignant / Étudiant | **5 SP** | Moyenne |
+| **US12** | Consulter son emploi du temps (jour / semaine / créneaux) | Étudiant | **5 SP** | Moyenne |
+| **US13** | Ajouter un nouvel étudiant par l'administration (avec matricule unique) | Admin | **3 SP** | Haute |
+| **US14** | Modifier les informations d'un étudiant (email, téléphone, classe) | Admin | **2 SP** | Basse |
+| **US15** | Ajouter un enseignant par l'administration (département, matière) | Admin | **3 SP** | Moyenne |
+| **US16** | Gérer les groupes, filières et affectations de cours | Admin | **5 SP** | Haute |
+| **US17** | Consulter les statistiques globales d'absence sous forme graphique (BI) | Admin / Direction | **8 SP** | Haute |
+| **US18** | Envoyer une notification push lors de l'enregistrement d'une absence | Système / Push | **5 SP** | Moyenne |
 
-**Total Phase 2 (Aya) : 39 Story Points**
-
----
-
-## 🛠️ Travail Réalisé par Couche (Partie 2)
-
-### 1. Cycle Complet des Justificatifs (US06, US07, US09)
-*Ce module est 100% unifié sous la responsabilité d'Aya : elle gère le dépôt côté étudiant ET la validation côté administration sans dépendre d'Amine.*
-- [ ] **Modèle & Stockage JPA :**
-  - Entité `Justificatif` (`absence_id`, `etudiant_id`, `nomFichier`, `cheminFichier`, `typeMime`, `tailleFichier`, `dateDepot`, `statut`, `motifRefus`, `validePar_id`).
-- [ ] **`JustificatifController` (Upload & Décision) :**
-  - `POST /api/justificatifs/upload` : réception `multipart/form-data`, vérification MIME (PDF, JPG, PNG) et limite stricte ≤ 5 Mo.
-  - `GET /api/justificatifs/etudiant/{etudiantId}` : liste des justificatifs soumis avec statut en temps réel.
-  - `GET /api/justificatifs/{id}/file` : visualisation ou téléchargement du document original.
-  - `PUT /api/justificatifs/{id}/decision` : validation (`JUSTIFIEE`) ou rejet (`REFUSEE` avec motif obligatoire).
-- [ ] **Interface Mobile Justificatifs :**
-  - Sélecteur de fichier avec `expo-document-picker` et prise de photo avec `expo-image-picker`.
-  - Contrôle de taille côté client avant l'envoi (< 5 Mo).
-  - Modal d'examen et arbitrage pour l'administration/scolarité avec boutons « Valider » et « Refuser ».
-
-### 2. Espace Étudiant & Emploi du Temps (US04, US05, US12)
-- [x] **Écran de Suivi Personnel (`EtudiantHomeScreen.tsx`) :**
-  - Synthèse par cartes KPI : Total d'absences, Justifiées (vert), Non justifiées (rouge).
-  - Liste chronologique des absences avec libellé de cours et enseignant.
-  - Puce d'accès direct au dépôt de justificatif (`paperclip`).
-- [ ] **Écran Emploi du Temps (`EmploiDuTempsScreen.tsx`) :**
-  - `GET /api/etudiants/{id}/emploi-du-temps` : affichage du planning de la semaine avec créneau, matière et salle.
-
-### 3. Pilotage Administratif & BI Analytics (US15, US17)
-- [x] **Tableau de Bord Direction (`AdminHomeScreen.tsx`) :**
-  - Cartes d'indicateurs d'assiduité générale de l'établissement.
-  - Taux de présence par classe (`GI4-A`, `GI4-B`) avec jauges graphiques de conformité.
-  - Création de professeurs (`POST /api/admin/enseignants`).
+**Sous-total Partie 2 (Aya) : 41 Story Points**
 
 ---
 
-## 🚀 Workflow Git pour Aya (Démarrage Phase 2)
+## 🛠️ Travail à Réaliser par Couche (Partie 2)
+
+### 1. Backend Spring Boot (`backend/`)
+- [ ] **`Historique & Analytics` (US10, US11, US17) :**
+  - `GET /api/absences/historique` : filtre par groupe, date et matière pour les professeurs.
+  - `GET /api/statistiques/etudiant/{id}/taux` : calcul du pourcentage d'absence par rapport au volume horaire global.
+  - `GET /api/admin/statistiques` : agrégations globales pour la direction (taux par filière, par niveau GI4, par mois).
+- [ ] **`EmploiDuTempsController` (US12) :**
+  - `GET /api/etudiants/{id}/emploi-du-temps` : planning hebdomadaire de la classe.
+- [ ] **`AdminController` (US13, US14, US15, US16) :**
+  - `POST /api/admin/etudiants` : création de compte étudiant avec validation email et matricule unique.
+  - `PUT /api/admin/etudiants/{id}` : mise à jour de la fiche étudiant.
+  - `POST /api/admin/enseignants` : création d'enseignants.
+  - `POST /api/admin/groupes` & `PUT /api/admin/groupes/{id}/affectations` : gestion des filières et cours.
+- [ ] **`NotificationService` (US18) :**
+  - `POST /api/notifications/push` : déclenchement d'alerte instantanée lorsqu'une absence est enregistrée.
+
+### 2. Frontend Mobile React Native (`frontend/`)
+- [ ] **Écran Historique & Taux d'absentéisme (US10, US11) :**
+  - Vue détaillée des séances passées et pastille de couleur pour les étudiants au-delà du seuil critique (> 20%).
+- [ ] **Écran Emploi du Temps (`EmploiDuTempsScreen.tsx` - US12) :**
+  - Planning de la semaine avec cartes horaires et salles.
+- [ ] **Espace Administration & Gestion Scolarité (`AdminHomeScreen.tsx` - US13, US14, US15, US16, US17) :**
+  - Formulaires d'ajout rapide d'étudiants, enseignants et groupes.
+  - Graphiques visuels et barres de progression d'assiduité par groupe (GI4-A / GI4-B).
+- [ ] **Module de Notifications Push (US18) :**
+  - Intégration des notifications locales et push via `expo-notifications`.
+
+---
+
+## 🚀 Workflow Git pour Aya (Démarrage après Amine)
 
 ```powershell
 # 1. Se positionner dans le projet
 cd "d:\4eme annee\s7\gl-dp\tp3\absence-app"
 
-# 2. Récupérer le travail complet d'Amine terminé sur main
+# 2. Récupérer le travail complet d'Amine (US01 à US09 validés sur main)
 git checkout main
 git pull origin main
 
-# 3. Créer sa branche dédiée pour la Phase 2
-git checkout -b feature/aya-phase2-etudiant-justificatifs
+# 3. Créer sa branche dédiée
+git checkout -b feature/aya-phase2-us10-us18
 
-# 4. Travailler en toute indépendance et commiter
+# 4. Travailler sur US10 à US18 et commiter régulièrement
 git add .
-git commit -m "feat(justificatifs): upload de certificat médical et validation scolarite"
+git commit -m "feat(analytics): ajout du calcul des taux d'absentéisme et seuils d'alerte"
 
 # 5. Pousser sur GitHub
-git push -u origin feature/aya-phase2-etudiant-justificatifs
+git push -u origin feature/aya-phase2-us10-us18
 ```
