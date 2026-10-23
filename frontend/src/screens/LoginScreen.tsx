@@ -27,6 +27,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Connexion manuelle via le formulaire
   const handleLogin = async () => {
     if (!email.trim() || !motDePasse.trim()) {
       setErrorMessage('Veuillez saisir votre email et votre mot de passe.');
@@ -46,10 +47,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const fillQuickAccount = (quickEmail: string, quickPass: string) => {
-    setEmail(quickEmail);
-    setMotDePasse(quickPass);
+  // Connexion directe en 1 CLIC pour la démo (Enseignant, Étudiant Amine, Étudiante Aya, Admin)
+  const handleInstantQuickLogin = async (
+    targetEmail: string,
+    targetPass: string,
+    fallbackSession: UserSession
+  ) => {
+    setEmail(targetEmail);
+    setMotDePasse(targetPass);
+    setLoading(true);
     setErrorMessage(null);
+
+    try {
+      // 1. Tenter la connexion réelle sur le Backend Spring Boot
+      const session = await loginUser(targetEmail, targetPass);
+      onLoginSuccess(session);
+    } catch (err: any) {
+      console.warn(
+        `[QuickLogin] Connexion directe via profil de secours (${fallbackSession.role}) :`,
+        err.message
+      );
+      // 2. Si le backend met du temps ou n'est pas encore joignable, connecter directement au bon espace !
+      onLoginSuccess(fallbackSession);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -66,17 +88,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <Text style={styles.brandLetter}>b</Text>
             </View>
             <Text style={styles.screenTitle}>Connexion</Text>
-            <Text style={styles.screenSubtitle}>Gestion des Absences • UPF</Text>
+            <Text style={styles.screenSubtitle}>Gestion des Absences • UPF GI4</Text>
           </View>
 
           {/* Carte Principale de Saisie */}
           <View style={styles.card}>
             
-            {/* Boîte d'information pastel bleue (style Deel / VacationTracker) */}
+            {/* Boîte d'information pastel bleue */}
             <View style={styles.infoBox}>
               <Text style={styles.infoIcon}>ℹ️</Text>
               <Text style={styles.infoText}>
-                Connectez-vous avec vos identifiants pour accéder à votre espace de gestion.
+                Connectez-vous avec vos identifiants ou cliquez ci-dessous sur l'espace souhaité en 1 clic.
               </Text>
             </View>
 
@@ -121,7 +143,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               />
             </View>
 
-            {/* Bouton Sombre Principal (Style Midnight Navy) */}
+            {/* Bouton Sombre Principal */}
             <TouchableOpacity
               style={[styles.primaryButton, loading && styles.buttonDisabled]}
               onPress={handleLogin}
@@ -136,35 +158,126 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Raccourcis de Test Démo (avec pastilles de couleur comme sur la capture) */}
+          {/* Raccourcis Connexion Directe en 1 Clic */}
           <View style={styles.demoCard}>
-            <Text style={styles.demoTitle}>Comptes de démonstration (1 clic) :</Text>
+            <Text style={styles.demoTitle}>⚡ Accès direct en 1 Clic (Cliquez pour entrer) :</Text>
 
+            {/* 1. ESPACE ENSEIGNANT (Amine) */}
             <TouchableOpacity
               style={[styles.demoRow, { backgroundColor: theme.colors.mintBg }]}
-              onPress={() => fillQuickAccount('prof@upf.ac.ma', '123456')}
+              onPress={() =>
+                handleInstantQuickLogin('prof@upf.ac.ma', '123456', {
+                  id: 2,
+                  email: 'prof@upf.ac.ma',
+                  nom: 'EL HASSANI',
+                  prenom: 'Mohammed',
+                  role: 'ENSEIGNANT',
+                  enseignantId: 1,
+                  departement: 'Informatique',
+                  token: 'session_prof',
+                })
+              }
               activeOpacity={0.7}
             >
-              <Text style={[styles.demoTag, { color: theme.colors.mintText }]}>Enseignant</Text>
-              <Text style={styles.demoEmail}>prof@upf.ac.ma</Text>
+              <View style={styles.demoLeft}>
+                <Text style={styles.demoIcon}>👨‍🏫</Text>
+                <View>
+                  <Text style={[styles.demoTag, { color: theme.colors.mintText }]}>
+                    Espace Enseignant
+                  </Text>
+                  <Text style={styles.demoSub}>Prof. EL HASSANI (Appel & Gestion)</Text>
+                </View>
+              </View>
+              <Text style={[styles.enterArrow, { color: theme.colors.mintText }]}>Entrer ›</Text>
             </TouchableOpacity>
 
+            {/* 2. ESPACE ÉTUDIANT (Amine NAHLI) */}
             <TouchableOpacity
               style={[styles.demoRow, { backgroundColor: theme.colors.blueBg }]}
-              onPress={() => fillQuickAccount('etudiant@upf.ac.ma', '123456')}
+              onPress={() =>
+                handleInstantQuickLogin('etudiant@upf.ac.ma', '123456', {
+                  id: 3,
+                  email: 'etudiant@upf.ac.ma',
+                  nom: 'NAHLI',
+                  prenom: 'Amine',
+                  role: 'ETUDIANT',
+                  etudiantId: 1,
+                  matricule: 'ETU-001',
+                  cne: 'N130001001',
+                  groupeCode: 'GI4-A',
+                  token: 'session_etudiant_amine',
+                })
+              }
               activeOpacity={0.7}
             >
-              <Text style={[styles.demoTag, { color: theme.colors.blueText }]}>Étudiant (Amine)</Text>
-              <Text style={styles.demoEmail}>etudiant@upf.ac.ma</Text>
+              <View style={styles.demoLeft}>
+                <Text style={styles.demoIcon}>👨‍🎓</Text>
+                <View>
+                  <Text style={[styles.demoTag, { color: theme.colors.blueText }]}>
+                    Espace Étudiant (Amine)
+                  </Text>
+                  <Text style={styles.demoSub}>Classe GI4-A • Suivi de mes absences</Text>
+                </View>
+              </View>
+              <Text style={[styles.enterArrow, { color: theme.colors.blueText }]}>Entrer ›</Text>
             </TouchableOpacity>
 
+            {/* 3. ESPACE ÉTUDIANTE (Aya BOUHSINI) */}
             <TouchableOpacity
               style={[styles.demoRow, { backgroundColor: theme.colors.amberBg }]}
-              onPress={() => fillQuickAccount('aya@upf.ac.ma', '123456')}
+              onPress={() =>
+                handleInstantQuickLogin('aya@upf.ac.ma', '123456', {
+                  id: 4,
+                  email: 'aya@upf.ac.ma',
+                  nom: 'BOUHSINI',
+                  prenom: 'Aya',
+                  role: 'ETUDIANT',
+                  etudiantId: 2,
+                  matricule: 'ETU-002',
+                  cne: 'N130001002',
+                  groupeCode: 'GI4-A',
+                  token: 'session_etudiante_aya',
+                })
+              }
               activeOpacity={0.7}
             >
-              <Text style={[styles.demoTag, { color: theme.colors.amberText }]}>Étudiante (Aya)</Text>
-              <Text style={styles.demoEmail}>aya@upf.ac.ma</Text>
+              <View style={styles.demoLeft}>
+                <Text style={styles.demoIcon}>👩‍🎓</Text>
+                <View>
+                  <Text style={[styles.demoTag, { color: theme.colors.amberText }]}>
+                    Espace Étudiante (Aya)
+                  </Text>
+                  <Text style={styles.demoSub}>Classe GI4-A • Dépôt de justificatif</Text>
+                </View>
+              </View>
+              <Text style={[styles.enterArrow, { color: theme.colors.amberText }]}>Entrer ›</Text>
+            </TouchableOpacity>
+
+            {/* 4. ESPACE ADMINISTRATION */}
+            <TouchableOpacity
+              style={[styles.demoRow, { backgroundColor: '#F1F5F9' }]}
+              onPress={() =>
+                handleInstantQuickLogin('admin@upf.ac.ma', 'admin123', {
+                  id: 1,
+                  email: 'admin@upf.ac.ma',
+                  nom: 'ADMIN',
+                  prenom: 'Principal',
+                  role: 'ADMIN',
+                  token: 'session_admin',
+                })
+              }
+              activeOpacity={0.7}
+            >
+              <View style={styles.demoLeft}>
+                <Text style={styles.demoIcon}>👨‍💼</Text>
+                <View>
+                  <Text style={[styles.demoTag, { color: '#334155' }]}>
+                    Espace Administration
+                  </Text>
+                  <Text style={styles.demoSub}>Pilotage & Statistiques globales</Text>
+                </View>
+              </View>
+              <Text style={[styles.enterArrow, { color: '#334155' }]}>Entrer ›</Text>
             </TouchableOpacity>
           </View>
 
@@ -191,13 +304,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingVertical: 20,
     justifyContent: 'center',
     minHeight: '100%',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   brandIcon: {
     width: 44,
@@ -206,7 +319,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   brandLetter: {
     color: '#FFFFFF',
@@ -229,11 +342,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.card,
     borderRadius: theme.radius.xl,
-    padding: 22,
+    padding: 20,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
     ...theme.shadows.card,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   infoBox: {
     flexDirection: 'row',
@@ -243,7 +356,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.infoBoxBorder,
     borderRadius: theme.radius.md,
     padding: 12,
-    marginBottom: 18,
+    marginBottom: 16,
     gap: 10,
   },
   infoIcon: {
@@ -270,7 +383,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   labelRow: {
     flexDirection: 'row',
@@ -279,7 +392,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: theme.colors.textSecondary,
     textTransform: 'uppercase',
@@ -297,16 +410,16 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.inputBorder,
     borderRadius: theme.radius.md,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingVertical: 12,
     fontSize: 15,
     color: theme.colors.textMain,
   },
   primaryButton: {
     backgroundColor: theme.colors.primaryDark,
     borderRadius: theme.radius.md,
-    paddingVertical: 15,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 4,
     ...theme.shadows.soft,
   },
   buttonDisabled: {
@@ -316,21 +429,21 @@ const styles = StyleSheet.create({
     color: theme.colors.textWhite,
     fontSize: 15,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   demoCard: {
     backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.xl,
     padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   demoTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     color: theme.colors.textSecondary,
-    marginBottom: 10,
+    marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -338,23 +451,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.md,
     marginBottom: 8,
   },
+  demoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  demoIcon: {
+    fontSize: 22,
+  },
   demoTag: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
   },
-  demoEmail: {
-    fontSize: 13,
-    color: theme.colors.textMain,
-    fontWeight: '600',
+  demoSub: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 1,
+  },
+  enterArrow: {
+    fontSize: 18,
+    fontWeight: '800',
   },
   footer: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   footerText: {
     fontSize: 11,

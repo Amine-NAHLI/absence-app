@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
 import { UserSession } from '../types/auth';
 import { HeaderBar } from '../components/HeaderBar';
 import { theme } from '../theme/theme';
+import { AbsenceItem, getAbsencesByEtudiant } from '../services/absenceService';
 
 interface EtudiantHomeScreenProps {
   session: UserSession;
@@ -20,9 +22,35 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
   session,
   onLogout,
 }) => {
+  const [absences, setAbsences] = useState<AbsenceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadAbsences();
+  }, []);
+
+  const loadAbsences = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const etudiantId = session.etudiantId || 1;
+      const data = await getAbsencesByEtudiant(etudiantId);
+      setAbsences(data);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Impossible de récupérer vos absences');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalAbsences = absences.length;
+  const nonJustifiees = absences.filter((a) => a.statut === 'NON_JUSTIFIEE' || a.statut === 'REFUSEE').length;
+  const justifiees = absences.filter((a) => a.statut === 'JUSTIFIEE').length;
+  const enAttente = absences.filter((a) => a.statut === 'EN_ATTENTE').length;
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Barre de navigation haute (Exacte reproduction du screenshot) */}
       <HeaderBar
         title="UPF Absence"
         userInitial={session.prenom ? session.prenom[0] : 'E'}
@@ -31,7 +59,7 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         
-        {/* Section Profil Centré (comme sur l'écran droit du screenshot) */}
+        {/* Section Profil Centré */}
         <View style={styles.profileSection}>
           <View style={styles.avatarLarge}>
             <Text style={styles.avatarLargeText}>
@@ -42,105 +70,160 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
             {session.prenom} {session.nom}
           </Text>
           <Text style={styles.profileRole}>
-            Étudiant {session.groupeCode || 'GI4-A'} • Matricule : {session.matricule || 'ETU-001'}
+            Classe : <Text style={styles.boldText}>{session.groupeCode || 'GI4-A'}</Text> • CNE : {session.cne || 'N130001001'}
           </Text>
         </View>
 
-        {/* Carte d'Absence Principale (Design Carte du Screenshot) */}
-        <View style={styles.card}>
-          
-          {/* Ligne 1 : Date & Pastille type */}
-          <View style={styles.cardRowBetween}>
-            <Text style={styles.label}>Date(s) et heure(s)</Text>
-            <View style={styles.mintBadge}>
-              <Text style={styles.mintBadgeText}>Séance TP</Text>
-            </View>
+        {/* Compteurs Synthétiques Dynamiques (US04) */}
+        <View style={styles.statsRow}>
+          <View style={[styles.statBox, styles.statBoxTotal]}>
+            <Text style={styles.statNumber}>{totalAbsences}</Text>
+            <Text style={styles.statLabel}>Absence(s)</Text>
           </View>
 
-          <Text style={styles.dateValue}>Aujourd'hui • 08:30 - 10:15</Text>
-
-          <View style={styles.divider} />
-
-          {/* Ligne 2 : Matière & Prof */}
-          <Text style={styles.label}>Matière & Enseignant</Text>
-          <Text style={styles.courseValue}>Génie Logiciel & Méthodes Agiles</Text>
-          <Text style={styles.subDetail}>Prof. EL HASSANI • Salle Labo 3</Text>
-
-          <View style={styles.divider} />
-
-          {/* Ligne 3 : Durée */}
-          <View style={styles.cardRowBetween}>
-            <Text style={styles.label}>Durée</Text>
-            <Text style={styles.valueBold}>1h 45min (90 min)</Text>
+          <View style={[styles.statBox, styles.statBoxDanger]}>
+            <Text style={[styles.statNumber, styles.textDanger]}>{nonJustifiees}</Text>
+            <Text style={styles.statLabel}>Non Justifiée</Text>
           </View>
 
-          <View style={styles.divider} />
-
-          {/* Ligne 4 : Statut général avec pastille */}
-          <View style={styles.cardRowBetween}>
-            <Text style={styles.label}>Statut général</Text>
-            <View style={styles.statusRow}>
-              <View style={styles.amberDot} />
-              <Text style={styles.statusText}>Non justifiée</Text>
-            </View>
+          <View style={[styles.statBox, styles.statBoxSuccess]}>
+            <Text style={[styles.statNumber, styles.textSuccess]}>{justifiees}</Text>
+            <Text style={styles.statLabel}>Justifiée</Text>
           </View>
         </View>
 
-        {/* Boîte d'information pastel bleue (style du screenshot) */}
+        {/* Message d'erreur éventuel */}
+        {errorMessage && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+          </View>
+        )}
+
+        {/* Boîte d'information pastel bleue */}
         <View style={styles.infoBox}>
           <Text style={styles.infoIcon}>ℹ️</Text>
           <Text style={styles.infoText}>
-            Vous avez jusqu'à 48h après la séance pour déposer un certificat médical ou justificatif officiel (max 5 Mo).
+            Délai de régularisation : 48h maximum après la séance pour déposer un certificat médical (PDF, JPG ≤ 5 Mo).
           </Text>
         </View>
 
-        {/* Section Collègues / Groupe (comme sur le screenshot) */}
-        <View style={styles.card}>
-          <Text style={styles.cardSectionTitle}>Situation du groupe GI4-A</Text>
-          <Text style={styles.cardSectionSub}>
-            Taux d'assiduité global de la promotion : <Text style={styles.boldText}>94%</Text>
-          </Text>
-
-          <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Statut d'assiduité</Text>
-            <Text style={styles.tableCellVal}>En règle</Text>
-          </View>
-
-          <View style={styles.tableRow}>
-            <Text style={styles.tableCellLabel}>Justificatif déposé</Text>
-            <Text style={[styles.tableCellVal, { color: theme.colors.textMuted }]}>Aucun fichier</Text>
-          </View>
-        </View>
-
-        {/* Boutons d'Action Inférieurs (Exacte reproduction du screenshot) */}
-        <View style={styles.actionButtonGroup}>
-          {/* Bouton Sombre Midnight Navy (Demander / Approuver) */}
-          <TouchableOpacity
-            style={styles.primaryDarkButton}
-            onPress={() => alert('Ouverture du sélecteur de justificatif (US06 - PDF/Photo max 5 Mo)')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryDarkButtonText}>Déposer un justificatif</Text>
+        {/* Liste des Absences Réelles depuis Neon (US04) */}
+        <View style={styles.listHeaderRow}>
+          <Text style={styles.sectionTitle}>Historique des absences ({absences.length})</Text>
+          <TouchableOpacity onPress={loadAbsences} activeOpacity={0.7}>
+            <Text style={styles.refreshText}>🔄 Actualiser</Text>
           </TouchableOpacity>
+        </View>
 
-          {/* Boutons Secondaires (Annuler / Refuser) */}
-          <View style={styles.secondaryButtonRow}>
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => alert('Affichage de l\'emploi du temps complet (US12)')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.secondaryButtonText}>Mon Emploi du temps</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.secondaryButton, styles.buttonDangerOutline]}
-              onPress={onLogout}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.buttonDangerText}>Déconnexion</Text>
-            </TouchableOpacity>
+        {loading ? (
+          <ActivityIndicator style={{ padding: 30 }} color={theme.colors.primaryDark} />
+        ) : absences.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyIcon}>🎉</Text>
+            <Text style={styles.emptyTitle}>Aucune absence enregistrée</Text>
+            <Text style={styles.emptySub}>Votre assiduité est exemplaire !</Text>
           </View>
+        ) : (
+          absences.map((absence) => (
+            <View key={absence.id} style={styles.card}>
+              
+              {/* Ligne 1 : Date & Type */}
+              <View style={styles.cardRowBetween}>
+                <Text style={styles.label}>Date de la séance</Text>
+                <View
+                  style={[
+                    styles.badge,
+                    absence.typePresence === 'ABSENT' ? styles.badgeRose : styles.badgeAmber,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      absence.typePresence === 'ABSENT' ? styles.badgeTextRose : styles.badgeTextAmber,
+                    ]}
+                  >
+                    {absence.typePresence}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.dateValue}>
+                {absence.dateSeance} • {absence.heureDebut} — {absence.heureFin}
+              </Text>
+
+              <View style={styles.divider} />
+
+              {/* Ligne 2 : Matière & Salle */}
+              <Text style={styles.label}>Matière & Enseignant</Text>
+              <Text style={styles.courseValue}>{absence.matiereNom} ({absence.matiereCode})</Text>
+              <Text style={styles.subDetail}>
+                {absence.enseignantNom} • Salle : {absence.salle}
+              </Text>
+
+              <View style={styles.divider} />
+
+              {/* Ligne 3 : Statut du Justificatif */}
+              <View style={styles.cardRowBetween}>
+                <Text style={styles.label}>Statut de régularisation</Text>
+                <View style={styles.statusRow}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      {
+                        backgroundColor:
+                          absence.statut === 'JUSTIFIEE'
+                            ? theme.colors.mintText
+                            : absence.statut === 'EN_ATTENTE'
+                            ? theme.colors.amberText
+                            : theme.colors.roseText,
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.statusText,
+                      {
+                        color:
+                          absence.statut === 'JUSTIFIEE'
+                            ? theme.colors.mintText
+                            : absence.statut === 'EN_ATTENTE'
+                            ? theme.colors.amberText
+                            : theme.colors.roseText,
+                      },
+                    ]}
+                  >
+                    {absence.statut === 'NON_JUSTIFIEE'
+                      ? 'Non Justifiée'
+                      : absence.statut === 'EN_ATTENTE'
+                      ? 'En Attente de Validation'
+                      : 'Justifiée'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Bouton pour déposer le justificatif si non justifiée */}
+              {absence.statut === 'NON_JUSTIFIEE' && (
+                <TouchableOpacity
+                  style={styles.uploadCardButton}
+                  onPress={() => alert(`Dépôt de justificatif pour l'absence #${absence.id} (US06)`)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.uploadCardButtonText}>📎 Déposer un justificatif (≤ 5 Mo)</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))
+        )}
+
+        {/* Boutons d'Action Inférieurs */}
+        <View style={styles.actionButtonGroup}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={onLogout}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.buttonDangerText}>Se déconnecter</Text>
+          </TouchableOpacity>
         </View>
 
       </ScrollView>
@@ -188,80 +271,54 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textSecondary,
     marginTop: 3,
-    fontWeight: '500',
   },
-  card: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.xl,
-    padding: 18,
+  boldText: {
+    fontWeight: '700',
+    color: theme.colors.textMain,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    ...theme.shadows.card,
-    marginBottom: 16,
+    borderColor: '#E2E8F0',
+    ...theme.shadows.soft,
   },
-  cardRowBetween: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  statBoxTotal: {
+    backgroundColor: '#F1F5F9',
   },
-  label: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
+  statBoxDanger: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
-  mintBadge: {
-    backgroundColor: theme.colors.mintBg,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: theme.radius.pill,
+  statBoxSuccess: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
   },
-  mintBadgeText: {
-    color: theme.colors.mintText,
-    fontSize: 12,
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  statLabel: {
+    fontSize: 11,
     fontWeight: '700',
-  },
-  dateValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: theme.colors.textMain,
-    marginTop: 6,
-  },
-  courseValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.textMain,
-    marginTop: 4,
-  },
-  subDetail: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
+    color: '#64748B',
     marginTop: 2,
+    textAlign: 'center',
   },
-  valueBold: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.colors.textMain,
+  textDanger: {
+    color: '#DC2626',
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  amberDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.roseText,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.roseText,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: theme.colors.cardBorderSubtle,
-    marginVertical: 12,
+  textSuccess: {
+    color: '#16A34A',
   },
   infoBox: {
     flexDirection: 'row',
@@ -271,7 +328,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.infoBoxBorder,
     borderRadius: theme.radius.md,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: 18,
     gap: 10,
   },
   infoIcon: {
@@ -284,75 +341,155 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '500',
   },
-  cardSectionTitle: {
-    fontSize: 14,
+  listHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  refreshText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.primaryDark,
+  },
+  card: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.xl,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    ...theme.shadows.card,
+    marginBottom: 14,
+  },
+  cardRowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: theme.radius.pill,
+  },
+  badgeRose: {
+    backgroundColor: theme.colors.roseBg,
+  },
+  badgeAmber: {
+    backgroundColor: theme.colors.amberBg,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  badgeTextRose: {
+    color: theme.colors.roseText,
+  },
+  badgeTextAmber: {
+    color: theme.colors.amberText,
+  },
+  dateValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.colors.textMain,
+    marginTop: 6,
+  },
+  courseValue: {
+    fontSize: 15,
     fontWeight: '700',
     color: theme.colors.textMain,
+    marginTop: 4,
   },
-  cardSectionSub: {
+  subDetail: {
     fontSize: 12,
     color: theme.colors.textSecondary,
     marginTop: 2,
-    marginBottom: 12,
   },
-  boldText: {
-    fontWeight: '700',
-    color: theme.colors.textMain,
-  },
-  tableRow: {
+  statusRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.cardBorderSubtle,
+    alignItems: 'center',
+    gap: 6,
   },
-  tableCellLabel: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  tableCellVal: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.colors.textMain,
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
-  actionButtonGroup: {
-    marginTop: 6,
-    gap: 10,
+  divider: {
+    height: 1,
+    backgroundColor: theme.colors.cardBorderSubtle,
+    marginVertical: 12,
   },
-  primaryDarkButton: {
+  uploadCardButton: {
     backgroundColor: theme.colors.primaryDark,
     borderRadius: theme.radius.md,
-    paddingVertical: 15,
+    paddingVertical: 11,
     alignItems: 'center',
-    ...theme.shadows.soft,
+    marginTop: 14,
   },
-  primaryDarkButtonText: {
-    color: theme.colors.textWhite,
-    fontSize: 15,
+  uploadCardButtonText: {
+    color: '#FFFFFF',
     fontWeight: '700',
-    letterSpacing: 0.2,
+    fontSize: 13,
   },
-  secondaryButtonRow: {
-    flexDirection: 'row',
-    gap: 10,
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 30,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 20,
+  },
+  emptyIcon: {
+    fontSize: 36,
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  errorBox: {
+    backgroundColor: theme.colors.roseBg,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  errorText: {
+    color: theme.colors.roseText,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  actionButtonGroup: {
+    marginTop: 10,
   },
   secondaryButton: {
-    flex: 1,
-    backgroundColor: theme.colors.secondaryButton,
+    backgroundColor: '#FFF5F5',
     borderWidth: 1,
-    borderColor: theme.colors.secondaryButtonBorder,
+    borderColor: '#FECACA',
     borderRadius: theme.radius.md,
     paddingVertical: 13,
     alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: theme.colors.textMain,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  buttonDangerOutline: {
-    borderColor: '#FECACA',
-    backgroundColor: '#FFF5F5',
   },
   buttonDangerText: {
     color: theme.colors.roseText,
