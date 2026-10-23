@@ -1,79 +1,112 @@
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
-import { API_BASE_URL } from './src/config/api';
+import React, { useState } from 'react';
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { LoginScreen } from './src/screens/LoginScreen';
+import { EnseignantHomeScreen } from './src/screens/EnseignantHomeScreen';
+import { EtudiantHomeScreen } from './src/screens/EtudiantHomeScreen';
+import { UserSession } from './src/types/auth';
 
 export default function App() {
+  const [currentSession, setCurrentSession] = useState<UserSession | null>(null);
+
+  const handleLogout = () => {
+    setCurrentSession(null);
+  };
+
+  // 1. Utilisateur non connecté : afficher l'écran de Login
+  if (!currentSession) {
+    return (
+      <>
+        <LoginScreen onLoginSuccess={setCurrentSession} />
+        <StatusBar style="dark" />
+      </>
+    );
+  }
+
+  // 2. Si Enseignant connecté (Espace Amine)
+  if (currentSession.role === 'ENSEIGNANT') {
+    return (
+      <>
+        <EnseignantHomeScreen session={currentSession} onLogout={handleLogout} />
+        <StatusBar style="dark" />
+      </>
+    );
+  }
+
+  // 3. Si Étudiant connecté (Espace Aya)
+  if (currentSession.role === 'ETUDIANT') {
+    return (
+      <>
+        <EtudiantHomeScreen session={currentSession} onLogout={handleLogout} />
+        <StatusBar style="dark" />
+      </>
+    );
+  }
+
+  // 4. Si Administrateur connecté
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🎓 Absence App — UPF</Text>
-      <Text style={styles.subtitle}>Gestion des Absences Étudiants</Text>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>🌐 Connexion Backend Automatique</Text>
-        <Text style={styles.cardValue}>{API_BASE_URL}</Text>
-        <Text style={styles.cardHelp}>
-          L'adresse IP de votre PC est détectée automatiquement par Expo, même si vous changez de réseau Wi-Fi !
+    <SafeAreaView style={styles.adminContainer}>
+      <View style={styles.adminCard}>
+        <Text style={styles.adminTitle}>👨‍💼 Espace Administration</Text>
+        <Text style={styles.adminSub}>Connecté en tant que : {currentSession.email}</Text>
+        <Text style={styles.adminText}>
+          Gestion globale des étudiants, groupes, enseignants et statistiques d'absentéisme.
         </Text>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Text style={styles.logoutBtnText}>Se déconnecter</Text>
+        </TouchableOpacity>
       </View>
-
-      <StatusBar style="auto" />
-    </View>
+      <StatusBar style="dark" />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  adminContainer: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  adminCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  adminTitle: {
+    fontSize: 20,
+    fontWeight: '800',
     color: '#0F172A',
     marginBottom: 6,
   },
-  subtitle: {
-    fontSize: 15,
-    color: '#64748B',
-    marginBottom: 24,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 18,
-    width: '100%',
-    maxWidth: 380,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  cardTitle: {
-    fontSize: 14,
+  adminSub: {
+    fontSize: 13,
+    color: '#2563EB',
     fontWeight: '600',
-    color: '#3B82F6',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  cardValue: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    backgroundColor: '#F1F5F9',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  cardHelp: {
-    fontSize: 12,
+  adminText: {
+    fontSize: 13,
     color: '#64748B',
-    lineHeight: 17,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  logoutBtn: {
+    backgroundColor: '#EF4444',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+  },
+  logoutBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });
