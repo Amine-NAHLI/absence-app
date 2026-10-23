@@ -60,7 +60,15 @@ absence-app/
 
 ## 🚀 Démarrage Rapide
 
-### 1. Démarrer le Backend (Spring Boot)
+### ⚡ Méthode 1-Clic (Recommandée sous Windows) :
+Double-cliquez simplement sur le fichier **[`start.bat`](file:///d:/4eme%20annee/s7/gl-dp/tp3/absence-app/start.bat)** à la racine du projet !  
+Il va ouvrir automatiquement les deux terminaux (Spring Boot + Expo) en simultané.
+
+---
+
+### Ou manuellement par terminal :
+
+#### 1. Démarrer le Backend (Spring Boot)
 ```powershell
 cd backend
 mvn spring-boot:run
