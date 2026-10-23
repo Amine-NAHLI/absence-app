@@ -1,9 +1,11 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 
 interface HeaderBarProps {
   title?: string;
+  subtitle?: string;
   userInitial?: string;
   onLogout?: () => void;
   showNotificationDot?: boolean;
@@ -11,45 +13,53 @@ interface HeaderBarProps {
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   title = 'UPF Absence',
+  subtitle,
   userInitial = 'U',
   onLogout,
   showNotificationDot = true,
 }) => {
   return (
     <View style={styles.container}>
-      {/* Côté Gauche : Icône Menu Hamburger */}
-      <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-        <View style={styles.hamburger}>
-          <View style={styles.hamburgerLine} />
-          <View style={[styles.hamburgerLine, { width: 14 }]} />
-          <View style={styles.hamburgerLine} />
-        </View>
-      </TouchableOpacity>
-
-      {/* Centre : Titre / Marque */}
-      <Text style={styles.title}>{title}</Text>
-
-      {/* Côté Droit : Recherche, Cloche Notifications & Avatar */}
-      <View style={styles.rightGroup}>
-        {/* Loupe recherche */}
+      {/* Côté Gauche : Icône Menu épurée & Titre institutionnel */}
+      <View style={styles.leftGroup}>
         <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-          <Text style={styles.symbolIcon}>🔍</Text>
+          <Feather name="menu" size={19} color={theme.colors.textMain} />
+        </TouchableOpacity>
+        <View style={styles.titleColumn}>
+          <Text style={styles.title}>{title}</Text>
+          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        </View>
+      </View>
+
+      {/* Côté Droit : Recherche, Cloche Notifications & Avatar Pro */}
+      <View style={styles.rightGroup}>
+        {/* Recherche */}
+        <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
+          <Feather name="search" size={17} color={theme.colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Cloche avec pastille */}
+        {/* Notifications */}
         <TouchableOpacity style={styles.iconButton} activeOpacity={0.7}>
-          <Text style={styles.symbolIcon}>🔔</Text>
+          <Feather name="bell" size={17} color={theme.colors.textSecondary} />
           {showNotificationDot && <View style={styles.notificationDot} />}
         </TouchableOpacity>
 
-        {/* Avatar Utilisateur */}
-        <TouchableOpacity
-          style={styles.avatarButton}
-          onPress={onLogout}
-          activeOpacity={0.8}
-        >
+        {/* Bouton Déconnexion Direct */}
+        {onLogout && (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={onLogout}
+            activeOpacity={0.7}
+            accessibilityLabel="Déconnexion"
+          >
+            <Feather name="log-out" size={16} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+
+        {/* Avatar Utilisateur Corporate */}
+        <View style={styles.avatar}>
           <Text style={styles.avatarText}>{userInitial.toUpperCase()}</Text>
-        </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -60,62 +70,80 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.cardBorder,
   },
-  hamburger: {
-    gap: 4,
+  leftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  titleColumn: {
     justifyContent: 'center',
   },
-  hamburgerLine: {
-    width: 18,
-    height: 2.2,
-    backgroundColor: theme.colors.textMain,
-    borderRadius: 2,
-  },
   title: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: theme.colors.textMain,
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
+  },
+  subtitle: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
+    marginTop: 1,
   },
   rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
   },
   iconButton: {
-    padding: 6,
+    width: 34,
+    height: 34,
+    borderRadius: theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
   },
-  symbolIcon: {
-    fontSize: 16,
+  logoutButton: {
+    width: 34,
+    height: 34,
+    borderRadius: theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
   },
   notificationDot: {
     position: 'absolute',
-    top: 5,
-    right: 5,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: theme.colors.roseText,
-    borderWidth: 1.5,
-    borderColor: theme.colors.background,
+    top: 7,
+    right: 7,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#DC2626',
   },
-  avatarButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#E0E7FF',
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#C7D2FE',
+    marginLeft: 4,
   },
   avatarText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#3730A3',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
 });
