@@ -41,19 +41,25 @@ Consulter la documentation détaillée dans [docs/](docs/) :
 
 ---
 
-## Comptes & Données de Démonstration (Seeders Neon DB)
+## 🔐 Sécurité & Gestion des Accès (Configuration via `.env`)
 
-| Rôle | Nom & Prénom | Email (Identifiant) | Mot de passe | Détails / Identifiants |
-| :--- | :--- | :--- | :---: | :--- |
-| **Enseignant** | EL HASSANI Mohammed | `prof@upf.ac.ma` | `123456` | Matricule : `ENS-001` (Génie Logiciel) |
-| **Étudiant** | NAHLI Amine | `etudiant@upf.ac.ma` | `123456` | Matricule : `ETU-001`, CNE : `N130001001` (GI4-A) |
-| **Étudiante** | BOUHSINI Aya | `aya@upf.ac.ma` | `123456` | Matricule : `ETU-002`, CNE : `N130001002` (GI4-A) |
-| **Étudiant** | BENNANI Yassine | `yassine@upf.ac.ma` | `123456` | Matricule : `ETU-003`, CNE : `N130001003` (GI4-A) |
-| **Étudiante** | IDRISSI Salma | `salma@upf.ac.ma` | `123456` | Matricule : `ETU-004`, CNE : `N130001004` (GI4-A) |
-| **Administrateur** | ADMIN Principal | `admin@upf.ac.ma` | `admin123` | Pilotage global, filières & scolarité |
+Conformément aux exigences de sécurité, **aucun compte ni mot de passe n'est stocké en dur dans le code ou la documentation** :
 
-* **Groupe de test :** `GI4-A` (Génie Informatique 4ème Année).
-* **Matière active :** `GL401` — Génie Logiciel & Méthodes Agiles (Salle Labo 3).
+1. **Compte Administrateur Initial :**
+   * Configuré de façon privée et sécurisée dans votre fichier `backend/.env` (ignoré par Git) :
+     ```env
+     ADMIN_EMAIL=votre_email_admin@upf.com
+     ADMIN_PASSWORD=votre_mot_de_passe_securise
+     ```
+   * Ce compte permet de piloter la scolarité et de valider les demandes d'accès.
+
+2. **Création des Comptes Enseignants & Étudiants :**
+   * Les utilisateurs créent directement leur compte depuis l'écran de connexion de l'application mobile via l'onglet **« Créer un compte »**.
+   * Chaque demande est transmise à l'administrateur en attente de validation (`actif = false`).
+   * L'administrateur valide ou refuse les inscriptions depuis son tableau de bord.
+
+* **Groupes académiques initialisés :** `GI4-A`, `GI4-B` (Génie Informatique 4ème Année).
+* **Module académique initialisé :** `GL401` — Génie Logiciel & Design Patterns.
 
 ---
 
