@@ -5,6 +5,7 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -15,7 +16,6 @@ import { Feather } from '@expo/vector-icons';
 import { loginUser } from '../services/authService';
 import { UserSession } from '../types/auth';
 import { theme } from '../theme/theme';
-import { API_BASE_URL } from '../config/api';
 
 export interface DemoAccountConfig {
   key: string;
@@ -128,7 +128,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
   const handleLogin = async () => {
     if (!email.trim() || !motDePasse.trim()) {
-      setErrorMessage('Veuillez saisir votre identifiant et votre mot de passe.');
+      setErrorMessage('Veuillez renseigner votre identifiant et votre mot de passe.');
       return;
     }
 
@@ -171,7 +171,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     setMotDePasse(demo.pass);
     setErrorMessage(null);
     onLoginSuccess(demo.session);
-
     loginUser(demo.email, demo.pass).catch(() => {});
   };
 
@@ -179,17 +178,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.container}
+        style={styles.keyboardContainer}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent} 
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           
-          {/* Header minimaliste institutionnel */}
+          {/* Header institutionnel Apple FinTech */}
           <View style={styles.header}>
             <View style={styles.brandBadge}>
+              <View style={styles.brandBadgeDot} />
               <Text style={styles.brandBadgeText}>UNIVERSITÉ PRIVÉE DE FÈS</Text>
             </View>
             <Text style={styles.screenTitle}>Portail d'Assiduité</Text>
-            <Text style={styles.screenSubtitle}>Système de gestion des présences et des absences</Text>
+            <Text style={styles.screenSubtitle}>
+              Système de gestion des présences et des absences
+            </Text>
           </View>
 
           {/* Formulaire de Connexion Sécurisé */}
@@ -229,22 +235,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
             {/* Champ Mot de Passe */}
             <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
+              <View style={styles.passwordLabelRow}>
                 <Text style={styles.label}>Mot de passe</Text>
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
-                  style={styles.toggleRow}
+                  activeOpacity={0.7}
+                  style={styles.togglePasswordBtn}
                 >
-                  <Feather
-                    name={showPassword ? 'eye-off' : 'eye'}
-                    size={13}
-                    color={theme.colors.textMuted}
-                  />
-                  <Text style={styles.toggleText}>
+                  <Feather name={showPassword ? 'eye-off' : 'eye'} size={13} color={theme.colors.textMuted} />
+                  <Text style={styles.togglePasswordText}>
                     {showPassword ? 'Masquer' : 'Afficher'}
                   </Text>
                 </TouchableOpacity>
               </View>
+
               <View style={styles.inputWrapper}>
                 <Feather name="lock" size={16} color={theme.colors.textMuted} style={styles.inputIcon} />
                 <TextInput
@@ -254,63 +258,67 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   value={motDePasse}
                   onChangeText={setMotDePasse}
                   secureTextEntry={!showPassword}
+                  autoCapitalize="none"
                 />
               </View>
             </View>
 
-            {/* Bouton de Soumission Principal */}
+            {/* Bouton de Connexion Principal */}
             <TouchableOpacity
-              style={[styles.primaryButton, loading && styles.buttonDisabled]}
+              style={[styles.loginButton, loading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={loading}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
             >
               {loading ? (
-                <ActivityIndicator color={theme.colors.textWhite} size="small" />
+                <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <View style={styles.buttonInner}>
-                  <Text style={styles.primaryButtonText}>Se connecter</Text>
-                  <Feather name="arrow-right" size={15} color="#FFFFFF" />
+                <View style={styles.buttonContent}>
+                  <Text style={styles.loginButtonText}>Se connecter</Text>
+                  <Feather name="arrow-right" size={16} color="#FFFFFF" />
                 </View>
               )}
             </TouchableOpacity>
+
           </View>
 
-          {/* Profils d'accès prédéfinis */}
-          <View style={styles.demoCard}>
-            <View style={styles.demoHeaderRow}>
-              <Text style={styles.demoTitle}>Accès direct aux espaces dédiés</Text>
-              <View style={styles.verifiedBadge}>
-                <Feather name="check" size={11} color="#059669" />
-                <Text style={styles.verifiedText}>Vérifié</Text>
+          {/* Accès Rapide Multi-Rôles */}
+          <View style={styles.quickAccessSection}>
+            <View style={styles.quickAccessHeader}>
+              <Text style={styles.quickAccessTitle}>ACCÈS DIRECT AUX ESPACES DÉDIÉS</Text>
+              <View style={styles.statusLiveChip}>
+                <View style={styles.liveDot} />
+                <Text style={styles.statusLiveText}>Vérifié</Text>
               </View>
             </View>
 
-            {DEMO_ACCOUNTS.map((account) => (
-              <TouchableOpacity
-                key={account.key}
-                style={styles.demoRow}
-                onPress={() => handleInstantQuickLogin(account)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.demoLeft}>
-                  <View style={[styles.iconCircle, { backgroundColor: account.iconBg }]}>
-                    <Feather name={account.iconName} size={15} color={account.iconColor} />
+            <View style={styles.tilesContainer}>
+              {DEMO_ACCOUNTS.map((demo) => (
+                <TouchableOpacity
+                  key={demo.key}
+                  style={styles.tile}
+                  onPress={() => handleInstantQuickLogin(demo)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.tileIconContainer, { backgroundColor: demo.iconBg }]}>
+                    <Feather name={demo.iconName} size={18} color={demo.iconColor} />
                   </View>
-                  <View style={styles.demoTextContent}>
-                    <Text style={styles.demoAccountTitle}>{account.label}</Text>
-                    <Text style={styles.demoAccountSub}>{account.sub}</Text>
+
+                  <View style={styles.tileContent}>
+                    <Text style={styles.tileLabel}>{demo.label}</Text>
+                    <Text style={styles.tileSub} numberOfLines={1}>{demo.sub}</Text>
                   </View>
-                </View>
-                <View style={styles.enterChip}>
-                  <Text style={styles.enterChipText}>Accéder</Text>
-                  <Feather name="chevron-right" size={13} color={theme.colors.textSecondary} />
-                </View>
-              </TouchableOpacity>
-            ))}
+
+                  <View style={styles.enterChip}>
+                    <Text style={styles.enterChipText}>Accéder</Text>
+                    <Feather name="chevron-right" size={12} color={theme.colors.textSecondary} />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          {/* Pied de page institutionnel */}
+          {/* Mentions institutionnelles */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
               UPF Absence • Génie Informatique 4ème Année • Service Scolarité
@@ -323,41 +331,52 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   );
 };
 
+const ANDROID_STATUSBAR = Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0;
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: theme.colors.background,
+    paddingTop: ANDROID_STATUSBAR + 6,
   },
-  container: {
+  keyboardContainer: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
-    justifyContent: 'center',
-    minHeight: '100%',
+    paddingVertical: 18,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 20,
   },
   brandBadge: {
-    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: theme.radius.sm,
+    borderRadius: theme.radius.pill,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 10,
+    marginBottom: 8,
+  },
+  brandBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.primaryAccent,
   },
   brandBadgeText: {
     fontSize: 10,
     fontWeight: '700',
     color: '#475569',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   screenTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: theme.colors.textMain,
     letterSpacing: -0.4,
@@ -367,15 +386,16 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 4,
     fontWeight: '500',
+    textAlign: 'center',
   },
   card: {
-    backgroundColor: theme.colors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.lg,
     padding: 20,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
     ...theme.shadows.card,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   infoBox: {
     flexDirection: 'row',
@@ -410,33 +430,32 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-    color: theme.colors.absentText,
     fontSize: 12,
+    color: theme.colors.absentText,
+    lineHeight: 16,
     fontWeight: '600',
   },
   inputGroup: {
-    marginBottom: 14,
+    marginBottom: 16,
   },
-  labelRow: {
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textMain,
+    marginBottom: 6,
+  },
+  passwordLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
   },
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: theme.colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 6,
-  },
-  toggleRow: {
+  togglePasswordBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  toggleText: {
+  togglePasswordText: {
     fontSize: 11,
     color: theme.colors.textMuted,
     fontWeight: '600',
@@ -444,112 +463,116 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
+    borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.sm,
     paddingHorizontal: 12,
   },
   inputIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     fontSize: 14,
     color: theme.colors.textMain,
   },
-  primaryButton: {
+  loginButton: {
     backgroundColor: theme.colors.primaryDark,
     borderRadius: theme.radius.sm,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
-  },
-  buttonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    ...theme.shadows.subtle,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
-  primaryButtonText: {
-    color: theme.colors.textWhite,
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loginButtonText: {
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
-  demoCard: {
-    backgroundColor: theme.colors.card,
+  quickAccessSection: {
+    backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.lg,
     padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    marginBottom: 16,
+    ...theme.shadows.card,
   },
-  demoHeaderRow: {
+  quickAccessHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  demoTitle: {
+  quickAccessTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
-  verifiedBadge: {
+  statusLiveChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 6,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: theme.radius.pill,
-    backgroundColor: '#ECFDF5',
   },
-  verifiedText: {
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
+  },
+  statusLiveText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#059669',
+    color: '#065F46',
   },
-  demoRow: {
+  tilesContainer: {
+    gap: 8,
+  },
+  tile: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    padding: 12,
+    backgroundColor: '#F8FAFC',
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    backgroundColor: '#FAFAFC',
-    marginBottom: 8,
+    borderColor: theme.colors.cardBorder,
+    gap: 12,
   },
-  demoLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  tileIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.radius.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  demoTextContent: {
+  tileContent: {
     flex: 1,
   },
-  demoAccountTitle: {
+  tileLabel: {
     fontSize: 13,
     fontWeight: '700',
     color: theme.colors.textMain,
   },
-  demoAccountSub: {
+  tileSub: {
     fontSize: 11,
     color: theme.colors.textMuted,
     marginTop: 1,
@@ -557,22 +580,22 @@ const styles = StyleSheet.create({
   enterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: theme.radius.xs,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
+    gap: 2,
   },
   enterChipText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: theme.colors.textSecondary,
   },
   footer: {
+    marginTop: 22,
     alignItems: 'center',
-    paddingVertical: 8,
   },
   footerText: {
     fontSize: 11,

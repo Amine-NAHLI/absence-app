@@ -1,16 +1,21 @@
 /**
- * Design System — Linear & Vercel Minimalist (Light Edition)
- * Inspiré des grandes applications professionnelles (Linear, Vercel, Stripe) :
- * - Fond gris technique clair et reposant (#F8FAFC)
- * - Cartes en blanc pur (#FFFFFF) avec bordures ultra-fines (#E2E8F0)
- * - Typographie contrastée ardoise (#0F172A) et gris neutre (#64748B)
- * - Indicateurs d'état nets (Émeraude, Ambre, Crimson) sans fioritures
- * - Zéro emoji : utilisation exclusive de micro-indicateurs et d'icônes vectorielles
+ * Design System — FinTech Apple Clean (Light Edition)
+ * Inspiré d'Apple iOS & Revolut :
+ * - Sécurisation Safe Area native anti-collision d'horloge
+ * - Fond gris perle reposant (#F8FAFC) et cartes en blanc pur (#FFFFFF)
+ * - Typographie contrastée Slate 900 (#0B132B) et Slate 600 (#475569)
+ * - Indicateurs sémantiques doux (Émeraude #10B981, Carmin #EF4444, Ambre #F59E0B)
+ * - Grilles métriques aérées à 2 colonnes pour éliminer tout tronquage de texte
+ * - Zéro émoji : icônes vectorielles Feather et micro-indicateurs professionnels
  */
+
+import { Platform, StatusBar } from 'react-native';
+
+export const STATUSBAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0;
 
 export const theme = {
   colors: {
-    // Surfaces & Fonds
+    // Fond & Surfaces
     background: '#F8FAFC',
     card: '#FFFFFF',
     cardElevated: '#FFFFFF',
@@ -18,25 +23,25 @@ export const theme = {
     cardBorderSubtle: '#F1F5F9',
     divider: '#EDF2F7',
 
-    // Teinte Primaire & Actions
-    primaryDark: '#0F172A',         // Slate 900
-    primaryDarkHover: '#1E293B',    // Slate 800
-    primaryAccent: '#2563EB',       // Corporate Blue
+    // Identité Institutionnelle & Actions
+    primaryDark: '#0B132B',         // Deep Navy Apple
+    primaryDarkHover: '#1C2541',
+    primaryAccent: '#2563EB',       // Blue Apple
     primaryAccentBg: '#EFF6FF',
 
-    // Boutons Secondaires
+    // Boutons & Surfaces Secondaires
     secondaryButtonBg: '#F8FAFC',
     secondaryButtonBorder: '#E2E8F0',
     secondaryButtonText: '#334155',
 
-    // Typographie
-    textMain: '#0F172A',
+    // Typographie Haute Lisibilité
+    textMain: '#0B132B',
     textSecondary: '#475569',
     textMuted: '#64748B',
     textLight: '#94A3B8',
     textWhite: '#FFFFFF',
 
-    // Indicateurs Sémantiques (Présences, Absences, Retards)
+    // Indicateurs Sémantiques
     presentBg: '#ECFDF5',
     presentBorder: '#A7F3D0',
     presentText: '#065F46',
@@ -52,7 +57,7 @@ export const theme = {
     pendingText: '#92400E',
     pendingDot: '#F59E0B',
 
-    // Badges neutres
+    // Badges Neutres
     neutralBadgeBg: '#F1F5F9',
     neutralBadgeBorder: '#E2E8F0',
     neutralBadgeText: '#334155',
@@ -62,13 +67,13 @@ export const theme = {
     infoBoxBorder: '#BAE6FD',
     infoBoxText: '#0369A1',
 
-    // Champs de Saisie
-    inputBg: '#FFFFFF',
+    // Formulaires & Inputs
+    inputBg: '#F8FAFC',
     inputBorder: '#CBD5E1',
-    inputBorderFocused: '#0F172A',
+    inputBorderFocused: '#0B132B',
     placeholder: '#94A3B8',
 
-    // Alias pour rétro-compatibilité
+    // Rétrocompatibilité
     mintBg: '#ECFDF5',
     mintText: '#065F46',
     blueBg: '#EFF6FF',
@@ -81,36 +86,36 @@ export const theme = {
   },
 
   radius: {
-    xs: 4,
-    sm: 6,
-    md: 8,
-    lg: 12,
-    xl: 16,
+    xs: 6,
+    sm: 10,
+    md: 14,
+    lg: 18,
+    xl: 24,
     pill: 999,
   },
 
   shadows: {
     none: {},
     subtle: {
-      shadowColor: '#0F172A',
+      shadowColor: '#0B132B',
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
+      shadowOpacity: 0.04,
+      shadowRadius: 4,
       elevation: 1,
     },
     soft: {
-      shadowColor: '#0F172A',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
-      elevation: 1,
-    },
-    card: {
-      shadowColor: '#0F172A',
+      shadowColor: '#0B132B',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.04,
+      shadowOpacity: 0.05,
       shadowRadius: 6,
       elevation: 2,
+    },
+    card: {
+      shadowColor: '#0B132B',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+      elevation: 3,
     },
   },
 };

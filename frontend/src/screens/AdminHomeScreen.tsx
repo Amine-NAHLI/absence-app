@@ -21,160 +21,196 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
   session,
   onLogout,
 }) => {
+  const initial = session.prenom?.[0] || session.nom?.[0] || 'A';
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <HeaderBar
-        title="UPF Absence"
-        subtitle="Administration"
-        userInitial="A"
+        title="Espace Administration"
+        subtitle="Direction des Études"
+        userInitial={initial}
         onLogout={onLogout}
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         
-        {/* Titre et Contexte Scolarité */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.screenHeading}>Tableau de bord de scolarité</Text>
-          <Text style={styles.screenSubheading}>
-            Direction des Études • Pilotage institutionnel et assiduité
+        {/* Titre & Sous-titre institutionnel */}
+        <View style={styles.sectionHeading}>
+          <Text style={styles.adminTitle}>Tableau de bord de scolarité</Text>
+          <Text style={styles.adminSubtitle}>
+            Pilotage institutionnel, gestion des cohortes et assiduité
           </Text>
         </View>
 
-        {/* Boîte d'information */}
-        <View style={styles.infoBox}>
-          <Feather name="info" size={14} color={theme.colors.infoBoxText} />
-          <Text style={styles.infoText}>
+        {/* Bannière de supervision */}
+        <View style={styles.supervisionBanner}>
+          <Feather name="info" size={15} color={theme.colors.infoBoxText} />
+          <Text style={styles.supervisionText}>
             Supervision académique UPF : gestion centralisée des promotions, comptes et assiduité en temps réel.
           </Text>
         </View>
 
-        {/* 3 Cartes KPI Institutionnelles (US17) */}
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <View style={styles.statTop}>
-              <Feather name="users" size={14} color={theme.colors.textMuted} />
-              <Text style={styles.statLabel}>Étudiants</Text>
+        {/* 1. Métriques Institutionnelles Apple FinTech (Grille 2 Colonnes) */}
+        <View style={styles.kpiContainer}>
+          
+          {/* Ligne 1 : Étudiants & Professeurs côte à côte */}
+          <View style={styles.dualKpiRow}>
+            {/* Étudiants */}
+            <View style={styles.kpiCard}>
+              <View style={styles.kpiCardHeader}>
+                <Feather name="users" size={15} color={theme.colors.primaryAccent} />
+                <Text style={styles.kpiCardLabel}>ÉTUDIANTS</Text>
+              </View>
+              <Text style={styles.kpiMainNumber}>5</Text>
+              <Text style={styles.kpiSubLabel}>Inscrits en GI4</Text>
             </View>
-            <Text style={styles.statNumber}>5</Text>
-            <Text style={styles.statSub}>Inscrits en GI4</Text>
+
+            {/* Corps Professoral */}
+            <View style={styles.kpiCard}>
+              <View style={styles.kpiCardHeader}>
+                <Feather name="briefcase" size={15} color={theme.colors.textSecondary} />
+                <Text style={styles.kpiCardLabel}>ENSEIGNANTS</Text>
+              </View>
+              <Text style={styles.kpiMainNumber}>1</Text>
+              <Text style={styles.kpiSubLabel}>Enseignant actif</Text>
+            </View>
           </View>
 
-          <View style={styles.statBox}>
-            <View style={styles.statTop}>
-              <Feather name="user-check" size={14} color={theme.colors.textMuted} />
-              <Text style={styles.statLabel}>Corps professoral</Text>
+          {/* Ligne 2 : Assiduité Globale Pleine Largeur */}
+          <View style={styles.attendanceSummaryCard}>
+            <View style={styles.attendanceHeader}>
+              <View style={styles.attendanceTitleGroup}>
+                <Feather name="trending-up" size={16} color="#10B981" />
+                <Text style={styles.attendanceLabel}>ASSIDUITÉ GLOBALE</Text>
+              </View>
+              <View style={styles.targetBadge}>
+                <Text style={styles.targetBadgeText}>Objectif ≥ 90%</Text>
+              </View>
             </View>
-            <Text style={styles.statNumber}>1</Text>
-            <Text style={styles.statSub}>Enseignant actif</Text>
+
+            <View style={styles.attendanceScoreRow}>
+              <Text style={styles.attendanceBigScore}>93.4%</Text>
+              <Text style={styles.attendanceComment}>Taux conforme au contrat pédagogique</Text>
+            </View>
+
+            {/* Barre de progression continue */}
+            <View style={styles.progressBarTrack}>
+              <View style={[styles.progressBarFill, { width: '93.4%' }]} />
+            </View>
           </View>
 
-          <View style={styles.statBox}>
-            <View style={styles.statTop}>
-              <Feather name="trending-up" size={14} color="#059669" />
-              <Text style={styles.statLabel}>Assiduité globale</Text>
+        </View>
+
+        {/* 2. Gestion Pédagogique */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>GESTION PÉDAGOGIQUE</Text>
+        </View>
+
+        <View style={styles.actionCardsGroup}>
+          
+          {/* Action 1 : Enregistrer étudiant (US13) */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => alert('Ouverture du formulaire d\'enregistrement étudiant (US13)')}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
+              <Feather name="user-plus" size={18} color="#2563EB" />
             </View>
-            <Text style={[styles.statNumber, { color: '#059669' }]}>93.4%</Text>
-            <Text style={styles.statSub}>Objectif ≥ 90%</Text>
+            <View style={styles.actionTextContent}>
+              <Text style={styles.actionCardTitle}>Enregistrer un étudiant (US13)</Text>
+              <Text style={styles.actionCardSub}>
+                Création d'accès avec matricule, CNE et affectation de classe
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* Action 2 : Affecter enseignant (US15) */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => alert('Attribution des modules académiques (US15)')}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.actionIconBox, { backgroundColor: '#ECFDF5' }]}>
+              <Feather name="briefcase" size={18} color="#059669" />
+            </View>
+            <View style={styles.actionTextContent}>
+              <Text style={styles.actionCardTitle}>Affecter un enseignant (US15)</Text>
+              <Text style={styles.actionCardSub}>
+                Attribution des modules académiques et départements
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* Action 3 : Structure promotions & groupes (US16) */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => alert('Gestion des effectifs et groupes (US16)')}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.actionIconBox, { backgroundColor: '#F1F5F9' }]}>
+              <Feather name="layers" size={18} color="#334155" />
+            </View>
+            <View style={styles.actionTextContent}>
+              <Text style={styles.actionCardTitle}>Structure des promotions & groupes (US16)</Text>
+              <Text style={styles.actionCardSub}>
+                Répartition des effectifs GI4-A et suivi des capacités de salle
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+
+        </View>
+
+        {/* 3. Taux d'Assiduité par Groupe (US17) */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>TAUX D'ASSIDUITÉ PAR GROUPE (US17)</Text>
+        </View>
+
+        <View style={styles.cohortCard}>
+          {/* Groupe GI4-A */}
+          <View style={styles.cohortRow}>
+            <View style={styles.cohortInfoTop}>
+              <View style={styles.cohortTag}>
+                <Text style={styles.cohortTagText}>GI4-A</Text>
+              </View>
+              <Text style={styles.cohortName}>Génie Informatique 4A</Text>
+              <Text style={styles.cohortPercent}>93% assiduité</Text>
+            </View>
+            <View style={styles.cohortBarTrack}>
+              <View style={[styles.cohortBarFill, { width: '93%', backgroundColor: '#10B981' }]} />
+            </View>
+          </View>
+
+          {/* Groupe GI4-B */}
+          <View style={[styles.cohortRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
+            <View style={styles.cohortInfoTop}>
+              <View style={styles.cohortTag}>
+                <Text style={styles.cohortTagText}>GI4-B</Text>
+              </View>
+              <Text style={styles.cohortName}>Génie Informatique 4B</Text>
+              <Text style={styles.cohortPercent}>97% assiduité</Text>
+            </View>
+            <View style={styles.cohortBarTrack}>
+              <View style={[styles.cohortBarFill, { width: '97%', backgroundColor: '#2563EB' }]} />
+            </View>
           </View>
         </View>
 
-        {/* Section 1 : Actions Rapides de Scolarité (US13, US15, US16) */}
-        <Text style={styles.sectionTitle}>Gestion Pédagogique</Text>
-
-        {/* Carte Ajouter Étudiant (US13) */}
-        <TouchableOpacity
-          style={styles.cardAction}
-          onPress={() => alert('Ajout d\'étudiant (US13 - Aya BOUHSINI)')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.iconCircle, { backgroundColor: '#EFF6FF' }]}>
-            <Feather name="user-plus" size={16} color="#2563EB" />
-          </View>
-          <View style={styles.cardTextContent}>
-            <Text style={styles.cardActionTitle}>Enregistrer un étudiant (US13)</Text>
-            <Text style={styles.cardActionSub}>Création d'accès avec matricule, CNE et affectation de groupe</Text>
-          </View>
-          <Feather name="chevron-right" size={16} color={theme.colors.textLight} />
-        </TouchableOpacity>
-
-        {/* Carte Ajouter Enseignant (US15) */}
-        <TouchableOpacity
-          style={styles.cardAction}
-          onPress={() => alert('Ajout d\'enseignant (US15 - Aya BOUHSINI)')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.iconCircle, { backgroundColor: '#ECFDF5' }]}>
-            <Feather name="briefcase" size={16} color="#059669" />
-          </View>
-          <View style={styles.cardTextContent}>
-            <Text style={styles.cardActionTitle}>Affecter un enseignant (US15)</Text>
-            <Text style={styles.cardActionSub}>Attribution des modules académiques et départements</Text>
-          </View>
-          <Feather name="chevron-right" size={16} color={theme.colors.textLight} />
-        </TouchableOpacity>
-
-        {/* Carte Gérer les Groupes (US16) */}
-        <TouchableOpacity
-          style={styles.cardAction}
-          onPress={() => alert('Gestion des groupes GI4-A, GI4-B (US16 - Amine NAHLI)')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.iconCircle, { backgroundColor: '#F1F5F9' }]}>
-            <Feather name="layers" size={16} color="#475569" />
-          </View>
-          <View style={styles.cardTextContent}>
-            <Text style={styles.cardActionTitle}>Structure des promotions & groupes (US16)</Text>
-            <Text style={styles.cardActionSub}>Répartition des effectifs GI4-A et suivi des capacités de salle</Text>
-          </View>
-          <Feather name="chevron-right" size={16} color={theme.colors.textLight} />
-        </TouchableOpacity>
-
-        {/* Section 2 : Taux d'Assiduité par Groupe (US17) */}
-        <Text style={styles.sectionTitle}>Taux d'assiduité par groupe (US17)</Text>
-
-        <View style={styles.cardStats}>
-          {/* Ligne GI4-A */}
-          <View style={styles.progressRow}>
-            <View style={styles.progressHeader}>
-              <View style={styles.groupInfoRow}>
-                <View style={styles.codeTag}>
-                  <Text style={styles.codeTagText}>GI4-A</Text>
-                </View>
-                <Text style={styles.groupName}>Génie Informatique A</Text>
-              </View>
-              <Text style={styles.percentText}>93% assiduité</Text>
-            </View>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: '93%', backgroundColor: '#059669' }]} />
-            </View>
-          </View>
-
-          {/* Ligne GI4-B */}
-          <View style={[styles.progressRow, { marginTop: 14 }]}>
-            <View style={styles.progressHeader}>
-              <View style={styles.groupInfoRow}>
-                <View style={styles.codeTag}>
-                  <Text style={styles.codeTagText}>GI4-B</Text>
-                </View>
-                <Text style={styles.groupName}>Génie Informatique B</Text>
-              </View>
-              <Text style={styles.percentText}>97% assiduité</Text>
-            </View>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: '97%', backgroundColor: '#2563EB' }]} />
-            </View>
-          </View>
-        </View>
-
-        {/* Déconnexion Administrative */}
-        <View style={styles.actionButtonGroup}>
+        {/* 4. Bouton de Déconnexion Net (Zéro coupure de texte) */}
+        <View style={styles.bottomActions}>
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={onLogout}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
           >
-            <Feather name="log-out" size={14} color={theme.colors.textSecondary} />
-            <Text style={styles.logoutButtonText}>Fermer la session administrative</Text>
+            <Feather name="log-out" size={15} color={theme.colors.textSecondary} />
+            <Text style={styles.logoutButtonText}>Fermer la session</Text>
           </TouchableOpacity>
         </View>
 
@@ -190,168 +226,137 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 18,
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingBottom: 40,
   },
-  sectionHeader: {
-    marginBottom: 14,
+  sectionHeading: {
+    marginBottom: 12,
   },
-  screenHeading: {
+  adminTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: theme.colors.textMain,
     letterSpacing: -0.3,
   },
-  screenSubheading: {
+  adminSubtitle: {
     fontSize: 12,
     color: theme.colors.textMuted,
     marginTop: 2,
     fontWeight: '500',
   },
-  infoBox: {
+  supervisionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.infoBoxBg,
     borderWidth: 1,
     borderColor: theme.colors.infoBoxBorder,
     borderRadius: theme.radius.sm,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    marginBottom: 14,
+    marginBottom: 16,
     gap: 8,
   },
-  infoText: {
+  supervisionText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11.5,
     color: theme.colors.infoBoxText,
     lineHeight: 16,
     fontWeight: '500',
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
+  kpiContainer: {
+    marginBottom: 18,
+    gap: 10,
   },
-  statBox: {
+  dualKpiRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  kpiCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.md,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    ...theme.shadows.subtle,
-  },
-  statTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 6,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  statNumber: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: theme.colors.textMain,
-  },
-  statSub: {
-    fontSize: 10,
-    color: theme.colors.textLight,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  cardAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.md,
     padding: 14,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    marginBottom: 8,
-    gap: 12,
     ...theme.shadows.subtle,
   },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: theme.radius.sm,
+  kpiCardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 4,
   },
-  cardTextContent: {
-    flex: 1,
+  kpiCardLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    letterSpacing: 0.5,
   },
-  cardActionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+  kpiMainNumber: {
+    fontSize: 26,
+    fontWeight: '900',
     color: theme.colors.textMain,
+    marginVertical: 2,
   },
-  cardActionSub: {
+  kpiSubLabel: {
     fontSize: 11,
     color: theme.colors.textMuted,
-    marginTop: 2,
+    fontWeight: '500',
   },
-  cardStats: {
+  attendanceSummaryCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.md,
+    borderRadius: theme.radius.lg,
     padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    marginBottom: 16,
-    ...theme.shadows.subtle,
+    ...theme.shadows.card,
   },
-  progressRow: {
-    width: '100%',
-  },
-  progressHeader: {
+  attendanceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  groupInfoRow: {
+  attendanceTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  codeTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: theme.radius.xs,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  attendanceLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    letterSpacing: 0.6,
   },
-  codeTagText: {
+  targetBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: theme.radius.pill,
+  },
+  targetBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#334155',
+    color: '#065F46',
   },
-  groupName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.textMain,
+  attendanceScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginBottom: 10,
   },
-  percentText: {
+  attendanceBigScore: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#10B981',
+    letterSpacing: -0.5,
+  },
+  attendanceComment: {
     fontSize: 12,
-    fontWeight: '700',
     color: theme.colors.textSecondary,
+    fontWeight: '500',
   },
-  progressBarBg: {
+  progressBarTrack: {
     height: 6,
     backgroundColor: '#F1F5F9',
     borderRadius: 3,
@@ -359,25 +364,125 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
+    backgroundColor: '#10B981',
     borderRadius: 3,
   },
-  actionButtonGroup: {
-    marginTop: 8,
+  sectionHeaderRow: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    letterSpacing: 0.6,
+  },
+  actionCardsGroup: {
+    gap: 10,
+    marginBottom: 18,
+  },
+  actionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.md,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    gap: 12,
+    ...theme.shadows.subtle,
+  },
+  actionIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: theme.radius.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionTextContent: {
+    flex: 1,
+  },
+  actionCardTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: theme.colors.textMain,
+  },
+  actionCardSub: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  cohortCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    marginBottom: 18,
+    ...theme.shadows.card,
+  },
+  cohortRow: {
+    paddingBottom: 12,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  cohortInfoTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cohortTag: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: theme.radius.xs,
+    marginRight: 8,
+  },
+  cohortTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.colors.primaryDark,
+  },
+  cohortName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.textMain,
+  },
+  cohortPercent: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+  },
+  cohortBarTrack: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  cohortBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  bottomActions: {
+    marginTop: 4,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.sm,
-    paddingVertical: 11,
+    paddingVertical: 12,
+    ...theme.shadows.subtle,
   },
   logoutButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: theme.colors.textSecondary,
   },
 });

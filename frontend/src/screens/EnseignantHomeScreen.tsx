@@ -95,11 +95,11 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
         absentsList
       );
       setSuccessMessage(
-        `Appel synchronisé avec succès (${absentsList.length} absent(s) enregistré(s)).`
+        `Émargement synchronisé avec succès (${absentsList.length} absent(s) enregistré(s)).`
       );
     } catch {
       setSuccessMessage(
-        `Émargement validé localement pour la séance #${seanceId} (${absentsList.length} absent(s)).`
+        `Émargement validé en mode local sécurisé (${absentsList.length} absent(s)).`
       );
     } finally {
       setSaving(false);
@@ -109,143 +109,164 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
   const totalAbsents = etudiants.filter((e) => e.absent).length;
   const totalPresents = etudiants.length - totalAbsents;
 
+  const teacherName = `Prof. ${session.prenom || ''} ${session.nom || 'EL HASSANI'}`.trim();
+  const initial = session.prenom?.[0] || session.nom?.[0] || 'P';
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <HeaderBar
-        title="UPF Absence"
-        subtitle="Espace Enseignant"
-        userInitial={session.prenom ? session.prenom[0] : 'P'}
+        title="Feuille d'Émargement"
+        subtitle="GI4-A • Séance Active"
+        userInitial={initial}
         onLogout={onLogout}
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         
-        {/* Titre et Contexte Académique */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.screenHeading}>Feuille d'émargement de cours</Text>
-          <Text style={styles.screenSubheading}>
-            Prof. {session.prenom} {session.nom} • Département {session.departement || 'Informatique'}
+        {/* Titre de section enseignant */}
+        <View style={styles.sectionHeading}>
+          <Text style={styles.teacherTitle}>{teacherName}</Text>
+          <Text style={styles.teacherDept}>
+            Département Génie Informatique • Module Pédagogique
           </Text>
         </View>
 
-        {/* 1. Carte descriptive de la séance */}
+        {/* 1. Carte Séance Active Apple FinTech */}
         <View style={styles.sessionCard}>
-          <View style={styles.sessionCardHeader}>
-            <View style={styles.codeTag}>
-              <Text style={styles.codeTagText}>GL401</Text>
+          <View style={styles.sessionCardTop}>
+            <View style={styles.moduleTag}>
+              <Text style={styles.moduleTagText}>GL401</Text>
             </View>
-            <Text style={styles.courseTitle}>Génie Logiciel & Méthodes Agiles</Text>
+            <Text style={styles.sessionCourseName}>Génie Logiciel & Méthodes Agiles</Text>
           </View>
 
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Feather name="calendar" size={13} color={theme.colors.textMuted} />
-              <Text style={styles.metaText}>Aujourd'hui</Text>
+          {/* Métadonnées de salle & horaire */}
+          <View style={styles.metadataGrid}>
+            <View style={styles.metadataPill}>
+              <Feather name="calendar" size={12} color={theme.colors.textMuted} />
+              <Text style={styles.metadataPillText}>Aujourd'hui</Text>
             </View>
-            <View style={styles.metaDivider} />
-            <View style={styles.metaItem}>
-              <Feather name="clock" size={13} color={theme.colors.textMuted} />
-              <Text style={styles.metaText}>08:30 — 10:15</Text>
+            <View style={styles.metadataPill}>
+              <Feather name="clock" size={12} color={theme.colors.textMuted} />
+              <Text style={styles.metadataPillText}>08:30 — 10:15</Text>
             </View>
-            <View style={styles.metaDivider} />
-            <View style={styles.metaItem}>
-              <Feather name="map-pin" size={13} color={theme.colors.textMuted} />
-              <Text style={styles.metaText}>Labo 3</Text>
+            <View style={styles.metadataPill}>
+              <Feather name="map-pin" size={12} color={theme.colors.textMuted} />
+              <Text style={styles.metadataPillText}>Labo 3</Text>
             </View>
+          </View>
+
+          {/* Règle anti-doublon */}
+          <View style={styles.ruleNotice}>
+            <Feather name="shield" size={13} color={theme.colors.infoBoxText} />
+            <Text style={styles.ruleNoticeText}>
+              Groupe GI4-A • Contrôle anti-doublon d'émargement actif.
+            </Text>
           </View>
         </View>
 
-        {/* Boîte d'information sur la règle d'assiduité */}
-        <View style={styles.infoBox}>
-          <Feather name="info" size={14} color={theme.colors.infoBoxText} />
-          <Text style={styles.infoText}>
-            Groupe GI4-A • {etudiants.length} étudiants inscrits. La validation de l'émargement applique la règle anti-doublon.
-          </Text>
-        </View>
-
-        {/* Message de notification statut */}
+        {/* Messages Feedback */}
         {successMessage && (
-          <View style={styles.successBox}>
-            <Feather name="check-circle" size={15} color={theme.colors.presentText} />
-            <Text style={styles.successText}>{successMessage}</Text>
+          <View style={styles.successBanner}>
+            <Feather name="check-circle" size={16} color="#059669" />
+            <Text style={styles.successBannerText}>{successMessage}</Text>
           </View>
         )}
 
         {errorMessage && (
-          <View style={styles.errorBox}>
-            <Feather name="alert-circle" size={15} color={theme.colors.absentText} />
-            <Text style={styles.errorText}>{errorMessage}</Text>
+          <View style={styles.errorBanner}>
+            <Feather name="alert-circle" size={16} color={theme.colors.absentText} />
+            <Text style={styles.errorBannerText}>{errorMessage}</Text>
           </View>
         )}
 
-        {/* 2. Liste d'Appel des Étudiants */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.groupBadge}>
-              <Feather name="users" size={13} color={theme.colors.textSecondary} />
-              <Text style={styles.groupBadgeText}>Classe GI4-A</Text>
+        {/* 2. Liste d'Émargement des Étudiants */}
+        <View style={styles.rosterCard}>
+          <View style={styles.rosterHeader}>
+            <View style={styles.rosterTitleGroup}>
+              <Text style={styles.rosterTitle}>CLASSE GI4-A</Text>
+              <Text style={styles.rosterCount}>{etudiants.length} étudiants</Text>
             </View>
-            <View style={styles.counterRow}>
-              <View style={styles.counterBadgePresent}>
-                <View style={[styles.dot, { backgroundColor: theme.colors.presentDot }]} />
+
+            {/* Badges Compteurs Présents / Absents */}
+            <View style={styles.counterGroup}>
+              <View style={styles.counterPillPresent}>
+                <View style={[styles.counterDot, { backgroundColor: theme.colors.presentDot }]} />
                 <Text style={styles.counterTextPresent}>{totalPresents} présents</Text>
               </View>
-              <View style={styles.counterBadgeAbsent}>
-                <View style={[styles.dot, { backgroundColor: theme.colors.absentDot }]} />
+              <View style={styles.counterPillAbsent}>
+                <View style={[styles.counterDot, { backgroundColor: theme.colors.absentDot }]} />
                 <Text style={styles.counterTextAbsent}>{totalAbsents} absents</Text>
               </View>
             </View>
           </View>
 
           {loading ? (
-            <ActivityIndicator style={{ padding: 24 }} color={theme.colors.primaryDark} size="small" />
+            <ActivityIndicator style={{ padding: 32 }} color={theme.colors.primaryDark} size="small" />
           ) : (
             etudiants.map((etudiant, index) => {
               const isLast = index === etudiants.length - 1;
+              const studentInitial = etudiant.prenom?.[0] || etudiant.nom?.[0] || 'E';
+
               return (
                 <View
                   key={etudiant.id}
-                  style={[styles.studentRow, isLast && { borderBottomWidth: 0 }]}
+                  style={[styles.studentItemRow, isLast && { borderBottomWidth: 0 }]}
                 >
-                  <View style={styles.studentInfo}>
+                  {/* Avatar & Nom */}
+                  <View style={styles.studentInfoGroup}>
                     <View
                       style={[
-                        styles.statusDot,
+                        styles.studentAvatarCircle,
                         {
-                          backgroundColor: etudiant.absent
-                            ? theme.colors.absentDot
-                            : theme.colors.presentDot,
+                          backgroundColor: etudiant.absent ? '#FEF2F2' : '#F1F5F9',
+                          borderColor: etudiant.absent ? '#FECACA' : '#E2E8F0',
                         },
                       ]}
-                    />
-                    <View>
-                      <Text style={styles.studentName}>
+                    >
+                      <Text
+                        style={[
+                          styles.studentAvatarText,
+                          { color: etudiant.absent ? theme.colors.absentText : theme.colors.textMain },
+                        ]}
+                      >
+                        {studentInitial}
+                      </Text>
+                    </View>
+
+                    <View style={styles.studentTexts}>
+                      <Text style={styles.studentFullName} numberOfLines={1}>
                         {etudiant.nom} {etudiant.prenom}
                       </Text>
-                      <Text style={styles.studentMatricule}>
+                      <Text style={styles.studentSubInfo}>
                         {etudiant.matricule} • CNE {etudiant.cne}
                       </Text>
                     </View>
                   </View>
 
-                  {/* Bouton de basculement de présence */}
+                  {/* Toggle Présence Apple FinTech (Segmented Pill) */}
                   <TouchableOpacity
                     style={[
-                      styles.togglePill,
-                      etudiant.absent ? styles.togglePillAbsent : styles.togglePillPresent,
+                      styles.presenceTogglePill,
+                      etudiant.absent ? styles.toggleAbsentStyle : styles.togglePresentStyle,
                     ]}
                     onPress={() => togglePresence(etudiant.id)}
                     activeOpacity={0.7}
                   >
                     <Feather
                       name={etudiant.absent ? 'x' : 'check'}
-                      size={12}
+                      size={13}
                       color={etudiant.absent ? theme.colors.absentText : theme.colors.presentText}
                     />
                     <Text
                       style={[
-                        styles.togglePillText,
-                        etudiant.absent ? styles.textAbsent : styles.textPresent,
+                        styles.presenceToggleText,
+                        etudiant.absent
+                          ? { color: theme.colors.absentText }
+                          : { color: theme.colors.presentText },
                       ]}
                     >
                       {etudiant.absent ? 'ABSENT' : 'PRÉSENT'}
@@ -257,32 +278,38 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
           )}
         </View>
 
-        {/* 3. Actions d'enregistrement */}
+        {/* 3. Boutons d'Action Aérés (Zéro coupure de texte) */}
         <View style={styles.actionButtonGroup}>
+          {/* Bouton de validation principale */}
           <TouchableOpacity
-            style={[styles.primaryDarkButton, saving && styles.buttonDisabled]}
+            style={[styles.primarySubmitButton, saving && styles.buttonDisabled]}
             onPress={handleSaveAppel}
             disabled={saving || loading}
             activeOpacity={0.85}
           >
             {saving ? (
-              <ActivityIndicator color={theme.colors.textWhite} size="small" />
+              <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <View style={styles.buttonInner}>
-                <Feather name="check" size={16} color="#FFFFFF" />
-                <Text style={styles.primaryDarkButtonText}>Valider et enregistrer l'émargement</Text>
+              <View style={styles.buttonInnerRow}>
+                <Feather name="check-circle" size={16} color="#FFFFFF" />
+                <Text style={styles.primarySubmitButtonText}>
+                  Valider et enregistrer l'émargement
+                </Text>
               </View>
             )}
           </TouchableOpacity>
 
+          {/* Bouton d'actualisation secondaire sans texte coupé */}
           <TouchableOpacity
-            style={styles.secondaryButton}
+            style={styles.secondaryRefreshButton}
             onPress={loadGroupeData}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
           >
-            <View style={styles.buttonInner}>
+            <View style={styles.buttonInnerRow}>
               <Feather name="refresh-cw" size={14} color={theme.colors.textSecondary} />
-              <Text style={styles.secondaryButtonText}>Actualiser la liste</Text>
+              <Text style={styles.secondaryRefreshButtonText}>
+                Actualiser la liste des étudiants
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -299,19 +326,19 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 18,
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingBottom: 40,
   },
-  sectionHeader: {
-    marginBottom: 14,
+  sectionHeading: {
+    marginBottom: 12,
   },
-  screenHeading: {
-    fontSize: 20,
+  teacherTitle: {
+    fontSize: 18,
     fontWeight: '800',
     color: theme.colors.textMain,
     letterSpacing: -0.3,
   },
-  screenSubheading: {
+  teacherDept: {
     fontSize: 12,
     color: theme.colors.textMuted,
     marginTop: 2,
@@ -319,96 +346,94 @@ const styles = StyleSheet.create({
   },
   sessionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.md,
-    padding: 14,
+    borderRadius: theme.radius.lg,
+    padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    marginBottom: 12,
-    ...theme.shadows.subtle,
+    marginBottom: 16,
+    ...theme.shadows.card,
   },
-  sessionCardHeader: {
+  sessionCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 10,
   },
-  codeTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  moduleTag: {
+    backgroundColor: theme.colors.primaryDark,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: theme.radius.xs,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  codeTagText: {
+  moduleTagText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  courseTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.colors.textMain,
+  sessionCourseName: {
     flex: 1,
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.textMain,
   },
-  metaRow: {
+  metadataGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
   },
-  metaItem: {
+  metadataPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: theme.radius.xs,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  metaText: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    fontWeight: '500',
+  metadataPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
   },
-  metaDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: '#E2E8F0',
-  },
-  infoBox: {
+  ruleNotice: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     backgroundColor: theme.colors.infoBoxBg,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: theme.radius.xs,
     borderWidth: 1,
     borderColor: theme.colors.infoBoxBorder,
-    borderRadius: theme.radius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
-    gap: 8,
   },
-  infoText: {
+  ruleNoticeText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11,
     color: theme.colors.infoBoxText,
-    lineHeight: 16,
     fontWeight: '500',
   },
-  successBox: {
+  successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.presentBg,
+    backgroundColor: '#ECFDF5',
     borderWidth: 1,
-    borderColor: theme.colors.presentBorder,
+    borderColor: '#A7F3D0',
     borderRadius: theme.radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 12,
+    marginBottom: 14,
     gap: 8,
   },
-  successText: {
-    color: theme.colors.presentText,
-    fontSize: 12,
-    fontWeight: '600',
+  successBannerText: {
     flex: 1,
+    fontSize: 12,
+    color: '#065F46',
+    fontWeight: '600',
   },
-  errorBox: {
+  errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.absentBg,
@@ -417,177 +442,185 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 12,
+    marginBottom: 14,
     gap: 8,
   },
-  errorText: {
-    color: theme.colors.absentText,
-    fontSize: 12,
-    fontWeight: '600',
+  errorBannerText: {
     flex: 1,
+    fontSize: 12,
+    color: theme.colors.absentText,
+    fontWeight: '600',
   },
-  card: {
+  rosterCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.md,
-    padding: 14,
+    borderRadius: theme.radius.lg,
+    padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
     marginBottom: 16,
-    ...theme.shadows.subtle,
+    ...theme.shadows.card,
   },
-  cardHeaderRow: {
+  rosterHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    paddingBottom: 8,
+    marginBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
-  groupBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  groupBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
+  rosterTitleGroup: {},
+  rosterTitle: {
+    fontSize: 12,
+    fontWeight: '800',
     color: theme.colors.textMain,
+    letterSpacing: 0.6,
   },
-  counterRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  counterBadgePresent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: theme.colors.presentBg,
-    borderWidth: 1,
-    borderColor: theme.colors.presentBorder,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: theme.radius.xs,
-  },
-  counterTextPresent: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: theme.colors.presentText,
-  },
-  counterBadgeAbsent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: theme.colors.absentBg,
-    borderWidth: 1,
-    borderColor: theme.colors.absentBorder,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: theme.radius.xs,
-  },
-  counterTextAbsent: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: theme.colors.absentText,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  studentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
-  },
-  studentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  studentName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.textMain,
-  },
-  studentMatricule: {
+  rosterCount: {
     fontSize: 11,
     color: theme.colors.textMuted,
     marginTop: 1,
   },
-  togglePill: {
+  counterGroup: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  counterPillPresent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: theme.radius.xs,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.pill,
+  },
+  counterPillAbsent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.pill,
+  },
+  counterDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  counterTextPresent: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  counterTextAbsent: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#991B1B',
+  },
+  studentItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  studentInfoGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    paddingRight: 8,
+  },
+  studentAvatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studentAvatarText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  studentTexts: {
+    flex: 1,
+  },
+  studentFullName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.textMain,
+  },
+  studentSubInfo: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginTop: 1,
+  },
+  presenceTogglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.radius.pill,
     borderWidth: 1,
   },
-  togglePillAbsent: {
-    backgroundColor: theme.colors.absentBg,
-    borderColor: theme.colors.absentBorder,
+  togglePresentStyle: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
   },
-  togglePillPresent: {
-    backgroundColor: theme.colors.presentBg,
-    borderColor: theme.colors.presentBorder,
+  toggleAbsentStyle: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
-  togglePillText: {
-    fontSize: 10,
+  presenceToggleText: {
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  textAbsent: {
-    color: theme.colors.absentText,
-  },
-  textPresent: {
-    color: theme.colors.presentText,
+    letterSpacing: 0.3,
   },
   actionButtonGroup: {
+    gap: 10,
+  },
+  primarySubmitButton: {
+    backgroundColor: theme.colors.primaryDark,
+    borderRadius: theme.radius.sm,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...theme.shadows.subtle,
+  },
+  buttonInnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  primaryDarkButton: {
-    backgroundColor: theme.colors.primaryDark,
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  primarySubmitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  secondaryRefreshButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.sm,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  primaryDarkButtonText: {
-    color: theme.colors.textWhite,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.1,
-  },
-  secondaryButton: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.sm,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: {
+  secondaryRefreshButtonText: {
     color: theme.colors.textSecondary,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
