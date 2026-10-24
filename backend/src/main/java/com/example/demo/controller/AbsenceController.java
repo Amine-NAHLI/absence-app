@@ -139,14 +139,41 @@ public class AbsenceController {
     }
 
     /**
-     * Obtenir les absences déjà saisies pour une séance donnée.
+     * US08 : Modifier / rectifier une absence unitaire en cas d'erreur de saisie.
      */
-    @GetMapping("/seance/{seanceId}")
-    public ResponseEntity<List<Long>> getEtudiantIdsAbsentsForSeance(@PathVariable Long seanceId) {
-        List<Long> absentEtudiantIds = absenceRepository.findBySeanceId(seanceId)
-                .stream()
-                .map(a -> a.getEtudiant().getId())
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(absentEtudiantIds);
+    @PutMapping("/{id}/rectifier")
+    @Transactional
+    public ResponseEntity<?> rectifierAbsence(
+            @PathVariable Long id,
+            @RequestParam(value = "typePresence", defaultValue = "ABSENT") TypePresence typePresence,
+            @RequestParam(value = "annuler", defaultValue = "false") boolean annuler
+    ) {
+        log.info("Rectification de l'absence ID {}: typePresence={}, annuler={}", id, typePresence, annuler);
+
+        Optional<Absence> absenceOpt = absenceRepository.findById(id);
+        if (absenceOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Absence introuvable."));
+        }
+
+        Absence absence = absenceOpt.get();
+
+        if (annuler) {
+            absenceRepository.delete(absence);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Absence annulée avec succès (l'étudiant est désormais noté présent)."
+            ));
+        }
+
+        absence.setTypePresence(typePresence);
+        absence.setDateMarquage(LocalDateTime.now());
+        absenceRepository.save(absence);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Absence rectifiée avec succès.",
+                "nouveauTypePresence", absence.getTypePresence().name()
+        ));
     }
 }
