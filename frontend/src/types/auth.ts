@@ -22,6 +22,37 @@ export interface UserSession {
   token: string;
 }
 
+export interface RegisterPayload {
+  nom: string;
+  prenom: string;
+  email: string;
+  motDePasse: string;
+  telephone?: string;
+  role: 'ETUDIANT' | 'ENSEIGNANT';
+  matricule?: string;
+  cne?: string;
+  groupeCode?: string;
+  departement?: string;
+  specialite?: string;
+}
+
+export interface DemandeInscription {
+  userId: number;
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone?: string;
+  role: string;
+  matricule?: string;
+  cne?: string;
+  groupeCode?: string;
+  departement?: string;
+  specialite?: string;
+  dateCreation: string;
+  actif: boolean;
+}
+
 export interface LoginErrorResponse {
   message: string;
+  enAttente?: boolean;
 }

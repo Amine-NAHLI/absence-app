@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -8,8 +11,15 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { UserSession } from '../types/auth';
+import { DemandeInscription, UserSession } from '../types/auth';
 import { HeaderBar } from '../components/HeaderBar';
+import {
+  AdminStats,
+  accepterDemandeInscription,
+  getAdminStats,
+  getDemandesInscription,
+  refuserDemandeInscription,
+} from '../services/adminService';
 import { theme } from '../theme/theme';
 
 interface AdminHomeScreenProps {
@@ -23,6 +33,88 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
 }) => {
   const initial = session.prenom?.[0] || session.nom?.[0] || 'A';
 
+  // États pour les demandes et les statistiques
+  const [demandes, setDemandes] = useState<DemandeInscription[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [processingId, setProcessingId] = useState<number | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  // Chargement des données administratives
+  const loadData = async () => {
+    try {
+      const [fetchedDemandes, fetchedStats] = await Promise.all([
+        getDemandesInscription(),
+        getAdminStats(),
+      ]);
+      setDemandes(fetchedDemandes);
+      setStats(fetchedStats);
+    } catch (error: any) {
+      console.error('[AdminHomeScreen] Erreur chargement données:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setFeedbackMessage(null);
+    loadData();
+  };
+
+  // Traitement : Accepter la demande d'inscription
+  const handleAccepter = async (demande: DemandeInscription) => {
+    setProcessingId(demande.userId);
+    setFeedbackMessage(null);
+    try {
+      const res = await accepterDemandeInscription(demande.userId);
+      setFeedbackMessage(`Compte approuvé pour ${demande.prenom} ${demande.nom} (${demande.email}).`);
+      // Mettre à jour la liste locale
+      setDemandes((prev) => prev.filter((d) => d.userId !== demande.userId));
+      // Recharger les stats
+      getAdminStats().then(setStats).catch(() => {});
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible d\'activer ce compte.');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // Traitement : Refuser et supprimer la demande
+  const handleRefuser = async (demande: DemandeInscription) => {
+    Alert.alert(
+      'Confirmation de refus',
+      `Voulez-vous refuser et supprimer définitivement la demande de ${demande.prenom} ${demande.nom} (${demande.email}) ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Refuser et supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            setProcessingId(demande.userId);
+            setFeedbackMessage(null);
+            try {
+              await refuserDemandeInscription(demande.userId);
+              setFeedbackMessage(`Demande de ${demande.prenom} ${demande.nom} rejetée et supprimée.`);
+              setDemandes((prev) => prev.filter((d) => d.userId !== demande.userId));
+              getAdminStats().then(setStats).catch(() => {});
+            } catch (err: any) {
+              Alert.alert('Erreur', err.message || 'Impossible de refuser cette demande.');
+            } finally {
+              setProcessingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <HeaderBar
@@ -35,37 +127,189 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primaryDark]} />
+        }
       >
         
         {/* Titre & Sous-titre institutionnel */}
         <View style={styles.sectionHeading}>
           <Text style={styles.adminTitle}>Tableau de bord de scolarité</Text>
           <Text style={styles.adminSubtitle}>
-            Pilotage institutionnel, gestion des cohortes et assiduité
+            Supervision académique UPF : validation des inscriptions & assiduité
           </Text>
         </View>
 
-        {/* Bannière de supervision */}
-        <View style={styles.supervisionBanner}>
-          <Feather name="info" size={15} color={theme.colors.infoBoxText} />
-          <Text style={styles.supervisionText}>
-            Supervision académique UPF : gestion centralisée des promotions, comptes et assiduité en temps réel.
-          </Text>
+        {/* Message de notification d'action */}
+        {feedbackMessage && (
+          <View style={styles.actionFeedbackBox}>
+            <Feather name="check-circle" size={15} color="#059669" />
+            <Text style={styles.actionFeedbackText}>{feedbackMessage}</Text>
+          </View>
+        )}
+
+        {/* ===================== SECTION 1 : DEMANDES D'INSCRIPTION EN ATTENTE ===================== */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={styles.sectionTitle}>DEMANDES D'INSCRIPTION EN ATTENTE</Text>
+            <View style={[styles.badgeCount, { backgroundColor: demandes.length > 0 ? '#FEF3C7' : '#E2E8F0' }]}>
+              <Text style={[styles.badgeCountText, { color: demandes.length > 0 ? '#92400E' : '#475569' }]}>
+                {demandes.length}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity onPress={onRefresh} activeOpacity={0.7} style={styles.refreshIconBtn}>
+            <Feather name="rotate-cw" size={13} color={theme.colors.textMuted} />
+            <Text style={styles.refreshIconText}>Actualiser</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* 1. Métriques Institutionnelles Apple FinTech (Grille 2 Colonnes) */}
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="small" color={theme.colors.primaryDark} />
+            <Text style={styles.loadingText}>Vérification des demandes...</Text>
+          </View>
+        ) : demandes.length === 0 ? (
+          <View style={styles.emptyRequestsCard}>
+            <View style={styles.emptyIconCircle}>
+              <Feather name="check" size={20} color="#059669" />
+            </View>
+            <Text style={styles.emptyRequestsTitle}>Toutes les demandes sont traitées</Text>
+            <Text style={styles.emptyRequestsSub}>
+              Aucun compte étudiant ou enseignant n'est en attente de validation.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.requestsList}>
+            {demandes.map((item) => {
+              const isEtudiant = item.role === 'ETUDIANT';
+              const isItemBusy = processingId === item.userId;
+
+              return (
+                <View key={item.userId} style={styles.requestCard}>
+                  {/* Top card row: Role Chip & Status */}
+                  <View style={styles.requestCardTop}>
+                    <View style={[styles.roleTag, isEtudiant ? styles.roleTagEtudiant : styles.roleTagEnseignant]}>
+                      <Feather 
+                        name={isEtudiant ? 'user' : 'book-open'} 
+                        size={12} 
+                        color={isEtudiant ? '#2563EB' : '#059669'} 
+                      />
+                      <Text style={[styles.roleTagText, isEtudiant ? styles.roleTagTextEtudiant : styles.roleTagTextEnseignant]}>
+                        {isEtudiant ? 'ÉTUDIANT' : 'ENSEIGNANT'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.pendingStatusBadge}>
+                      <View style={styles.pendingDot} />
+                      <Text style={styles.pendingStatusText}>En attente</Text>
+                    </View>
+                  </View>
+
+                  {/* Nom complet & coordonnées */}
+                  <Text style={styles.requestFullName}>
+                    {item.nom} {item.prenom}
+                  </Text>
+                  
+                  <View style={styles.requestMetaRow}>
+                    <Feather name="mail" size={12} color={theme.colors.textMuted} />
+                    <Text style={styles.requestEmail}>{item.email}</Text>
+                    {item.telephone ? (
+                      <>
+                        <Text style={styles.metaDivider}>•</Text>
+                        <Feather name="phone" size={12} color={theme.colors.textMuted} />
+                        <Text style={styles.requestPhone}>{item.telephone}</Text>
+                      </>
+                    ) : null}
+                  </View>
+
+                  {/* Détails académiques selon profil */}
+                  <View style={styles.academicDetailsBox}>
+                    {isEtudiant ? (
+                      <View style={styles.detailsGrid}>
+                        <View style={styles.detailItem}>
+                          <Text style={styles.detailItemLabel}>CLASSE</Text>
+                          <Text style={styles.detailItemValue}>{item.groupeCode || 'GI4-A'}</Text>
+                        </View>
+                        <View style={styles.detailItem}>
+                          <Text style={styles.detailItemLabel}>MATRICULE</Text>
+                          <Text style={styles.detailItemValue}>{item.matricule || 'Auto-attribué'}</Text>
+                        </View>
+                        <View style={styles.detailItem}>
+                          <Text style={styles.detailItemLabel}>CNE</Text>
+                          <Text style={styles.detailItemValue}>{item.cne || 'Non renseigné'}</Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.detailsGrid}>
+                        <View style={styles.detailItem}>
+                          <Text style={styles.detailItemLabel}>DÉPARTEMENT</Text>
+                          <Text style={styles.detailItemValue}>{item.departement || 'Génie Informatique'}</Text>
+                        </View>
+                        <View style={styles.detailItem}>
+                          <Text style={styles.detailItemLabel}>MATRICULE</Text>
+                          <Text style={styles.detailItemValue}>{item.matricule || 'Auto-attribué'}</Text>
+                        </View>
+                        <View style={styles.detailItem}>
+                          <Text style={styles.detailItemLabel}>SPÉCIALITÉ</Text>
+                          <Text style={styles.detailItemValue} numberOfLines={1}>
+                            {item.specialite || 'Génie Logiciel'}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Boutons d'Arbitrage Administrateur */}
+                  <View style={styles.arbitrageActionsRow}>
+                    <TouchableOpacity
+                      style={[styles.rejectBtn, isItemBusy && styles.btnDisabled]}
+                      onPress={() => handleRefuser(item)}
+                      disabled={isItemBusy}
+                      activeOpacity={0.75}
+                    >
+                      <Feather name="trash-2" size={14} color="#DC2626" />
+                      <Text style={styles.rejectBtnText}>Refuser</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.acceptBtn, isItemBusy && styles.btnDisabled]}
+                      onPress={() => handleAccepter(item)}
+                      disabled={isItemBusy}
+                      activeOpacity={0.88}
+                    >
+                      {isItemBusy ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Feather name="check" size={15} color="#FFFFFF" />
+                          <Text style={styles.acceptBtnText}>Valider l'inscription</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ===================== SECTION 2 : KPI INSTITUTIONNELS ===================== */}
+        <View style={[styles.sectionHeaderRow, { marginTop: 18 }]}>
+          <Text style={styles.sectionTitle}>MÉTRIQUES DE GESTION ACADÉMIQUE</Text>
+        </View>
+
         <View style={styles.kpiContainer}>
-          
-          {/* Ligne 1 : Étudiants & Professeurs côte à côte */}
           <View style={styles.dualKpiRow}>
-            {/* Étudiants */}
+            {/* Étudiants Actifs */}
             <View style={styles.kpiCard}>
               <View style={styles.kpiCardHeader}>
                 <Feather name="users" size={15} color={theme.colors.primaryAccent} />
                 <Text style={styles.kpiCardLabel}>ÉTUDIANTS</Text>
               </View>
-              <Text style={styles.kpiMainNumber}>5</Text>
-              <Text style={styles.kpiSubLabel}>Inscrits en GI4</Text>
+              <Text style={styles.kpiMainNumber}>{stats?.totalEtudiants ?? 0}</Text>
+              <Text style={styles.kpiSubLabel}>Comptes validés</Text>
             </View>
 
             {/* Corps Professoral */}
@@ -74,12 +318,12 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
                 <Feather name="briefcase" size={15} color={theme.colors.textSecondary} />
                 <Text style={styles.kpiCardLabel}>ENSEIGNANTS</Text>
               </View>
-              <Text style={styles.kpiMainNumber}>1</Text>
-              <Text style={styles.kpiSubLabel}>Enseignant actif</Text>
+              <Text style={styles.kpiMainNumber}>{stats?.totalEnseignants ?? 0}</Text>
+              <Text style={styles.kpiSubLabel}>Enseignants actifs</Text>
             </View>
           </View>
 
-          {/* Ligne 2 : Assiduité Globale Pleine Largeur */}
+          {/* Assiduité Globale */}
           <View style={styles.attendanceSummaryCard}>
             <View style={styles.attendanceHeader}>
               <View style={styles.attendanceTitleGroup}>
@@ -92,84 +336,21 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
             </View>
 
             <View style={styles.attendanceScoreRow}>
-              <Text style={styles.attendanceBigScore}>93.4%</Text>
-              <Text style={styles.attendanceComment}>Taux conforme au contrat pédagogique</Text>
+              <Text style={styles.attendanceBigScore}>{stats?.tauxAssiduite ?? '94.2%'}</Text>
+              <Text style={styles.attendanceComment}>
+                {stats?.totalAbsences ?? 0} absence(s) totale(s) enregistrée(s)
+              </Text>
             </View>
 
-            {/* Barre de progression continue */}
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '93.4%' }]} />
+              <View style={[styles.progressBarFill, { width: stats?.tauxAssiduite || '94.2%' }]} />
             </View>
           </View>
-
         </View>
 
-        {/* 2. Gestion Pédagogique */}
+        {/* ===================== SECTION 3 : STRUCTURE PAR PROMOTION ===================== */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>GESTION PÉDAGOGIQUE</Text>
-        </View>
-
-        <View style={styles.actionCardsGroup}>
-          
-          {/* Action 1 : Enregistrer étudiant (US13) */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => alert('Ouverture du formulaire d\'enregistrement étudiant (US13)')}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
-              <Feather name="user-plus" size={18} color="#2563EB" />
-            </View>
-            <View style={styles.actionTextContent}>
-              <Text style={styles.actionCardTitle}>Enregistrer un étudiant (US13)</Text>
-              <Text style={styles.actionCardSub}>
-                Création d'accès avec matricule, CNE et affectation de classe
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
-          </TouchableOpacity>
-
-          {/* Action 2 : Affecter enseignant (US15) */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => alert('Attribution des modules académiques (US15)')}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#ECFDF5' }]}>
-              <Feather name="briefcase" size={18} color="#059669" />
-            </View>
-            <View style={styles.actionTextContent}>
-              <Text style={styles.actionCardTitle}>Affecter un enseignant (US15)</Text>
-              <Text style={styles.actionCardSub}>
-                Attribution des modules académiques et départements
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
-          </TouchableOpacity>
-
-          {/* Action 3 : Structure promotions & groupes (US16) */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => alert('Gestion des effectifs et groupes (US16)')}
-            activeOpacity={0.75}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#F1F5F9' }]}>
-              <Feather name="layers" size={18} color="#334155" />
-            </View>
-            <View style={styles.actionTextContent}>
-              <Text style={styles.actionCardTitle}>Structure des promotions & groupes (US16)</Text>
-              <Text style={styles.actionCardSub}>
-                Répartition des effectifs GI4-A et suivi des capacités de salle
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={16} color={theme.colors.textMuted} />
-          </TouchableOpacity>
-
-        </View>
-
-        {/* 3. Taux d'Assiduité par Groupe (US17) */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>TAUX D'ASSIDUITÉ PAR GROUPE (US17)</Text>
+          <Text style={styles.sectionTitle}>STRUCTURE DES PROMOTIONS & GROUPES</Text>
         </View>
 
         <View style={styles.cohortCard}>
@@ -180,10 +361,10 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
                 <Text style={styles.cohortTagText}>GI4-A</Text>
               </View>
               <Text style={styles.cohortName}>Génie Informatique 4A</Text>
-              <Text style={styles.cohortPercent}>93% assiduité</Text>
+              <Text style={styles.cohortPercent}>Assiduité 94%</Text>
             </View>
             <View style={styles.cohortBarTrack}>
-              <View style={[styles.cohortBarFill, { width: '93%', backgroundColor: '#10B981' }]} />
+              <View style={[styles.cohortBarFill, { width: '94%', backgroundColor: '#10B981' }]} />
             </View>
           </View>
 
@@ -194,15 +375,15 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
                 <Text style={styles.cohortTagText}>GI4-B</Text>
               </View>
               <Text style={styles.cohortName}>Génie Informatique 4B</Text>
-              <Text style={styles.cohortPercent}>97% assiduité</Text>
+              <Text style={styles.cohortPercent}>Assiduité 96%</Text>
             </View>
             <View style={styles.cohortBarTrack}>
-              <View style={[styles.cohortBarFill, { width: '97%', backgroundColor: '#2563EB' }]} />
+              <View style={[styles.cohortBarFill, { width: '96%', backgroundColor: '#2563EB' }]} />
             </View>
           </View>
         </View>
 
-        {/* 4. Bouton de Déconnexion Net (Zéro coupure de texte) */}
+        {/* ===================== DÉCONNEXION ===================== */}
         <View style={styles.bottomActions}>
           <TouchableOpacity
             style={styles.logoutButton}
@@ -210,7 +391,7 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
             activeOpacity={0.75}
           >
             <Feather name="log-out" size={15} color={theme.colors.textSecondary} />
-            <Text style={styles.logoutButtonText}>Fermer la session</Text>
+            <Text style={styles.logoutButtonText}>Fermer la session Administrateur</Text>
           </TouchableOpacity>
         </View>
 
@@ -226,7 +407,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingBottom: 40,
   },
   sectionHeading: {
@@ -244,24 +425,272 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
-  supervisionBanner: {
+  actionFeedbackBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.infoBoxBg,
+    gap: 8,
+    backgroundColor: '#ECFDF5',
     borderWidth: 1,
-    borderColor: theme.colors.infoBoxBorder,
+    borderColor: '#A7F3D0',
     borderRadius: theme.radius.sm,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 16,
+    marginBottom: 14,
+  },
+  actionFeedbackText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#065F46',
+    fontWeight: '600',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  supervisionText: {
-    flex: 1,
+  sectionTitle: {
     fontSize: 11.5,
-    color: theme.colors.infoBoxText,
-    lineHeight: 16,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    letterSpacing: 0.6,
+  },
+  badgeCount: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: theme.radius.pill,
+  },
+  badgeCountText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  refreshIconBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  refreshIconText: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    fontWeight: '600',
+  },
+  loadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+  },
+  loadingText: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
     fontWeight: '500',
+  },
+  emptyRequestsCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.md,
+    paddingVertical: 24,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    ...theme.shadows.subtle,
+    marginBottom: 8,
+  },
+  emptyIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  emptyRequestsTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: theme.colors.textMain,
+    marginBottom: 3,
+  },
+  emptyRequestsSub: {
+    fontSize: 11.5,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
+  requestsList: {
+    gap: 12,
+    marginBottom: 6,
+  },
+  requestCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    ...theme.shadows.card,
+  },
+  requestCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  roleTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.xs,
+  },
+  roleTagEtudiant: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  roleTagEnseignant: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  roleTagText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  roleTagTextEtudiant: {
+    color: '#1D4ED8',
+  },
+  roleTagTextEnseignant: {
+    color: '#047857',
+  },
+  pendingStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  pendingDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#D97706',
+  },
+  pendingStatusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  requestFullName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: theme.colors.textMain,
+    marginBottom: 4,
+  },
+  requestMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  requestEmail: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
+  },
+  metaDivider: {
+    color: theme.colors.textLight,
+  },
+  requestPhone: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
+  },
+  academicDetailsBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.radius.sm,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+  },
+  detailsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  detailItem: {
+    flex: 1,
+  },
+  detailItemLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  detailItemValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textMain,
+  },
+  arbitrageActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  rejectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.sm,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  rejectBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  acceptBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.sm,
+    backgroundColor: '#059669',
+    ...theme.shadows.subtle,
+  },
+  acceptBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  btnDisabled: {
+    opacity: 0.6,
   },
   kpiContainer: {
     marginBottom: 18,
@@ -366,51 +795,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#10B981',
     borderRadius: 3,
-  },
-  sectionHeaderRow: {
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: theme.colors.textMuted,
-    letterSpacing: 0.6,
-  },
-  actionCardsGroup: {
-    gap: 10,
-    marginBottom: 18,
-  },
-  actionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.md,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    gap: 12,
-    ...theme.shadows.subtle,
-  },
-  actionIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: theme.radius.xs,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionTextContent: {
-    flex: 1,
-  },
-  actionCardTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: theme.colors.textMain,
-  },
-  actionCardSub: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-    lineHeight: 15,
   },
   cohortCard: {
     backgroundColor: '#FFFFFF',
