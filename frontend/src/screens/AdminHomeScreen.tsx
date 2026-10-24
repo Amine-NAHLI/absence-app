@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { DemandeInscription, UserSession } from '../types/auth';
-import { Groupe, Matiere, Salle } from '../types/academic';
+import { AdminEnseignant, AdminEtudiant, Groupe, Matiere, Salle } from '../types/academic';
 import { HeaderBar } from '../components/HeaderBar';
 import {
   AdminStats,
@@ -23,10 +23,14 @@ import {
   createGroupe,
   createMatiere,
   createSalle,
+  deleteEnseignant,
+  deleteEtudiant,
   deleteGroupe,
   deleteMatiere,
   deleteSalle,
   getAdminStats,
+  getAllEnseignants,
+  getAllEtudiants,
   getDemandesInscription,
   getGroupes,
   getMatieres,
@@ -41,7 +45,7 @@ interface AdminHomeScreenProps {
   onLogout: () => void;
 }
 
-type AdminTab = 'DEMANDES' | 'GROUPES' | 'MATIERES' | 'SALLES';
+type AdminTab = 'DEMANDES' | 'ETUDIANTS' | 'ENSEIGNANTS' | 'GROUPES' | 'MATIERES' | 'SALLES';
 
 export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
   session,
@@ -57,7 +61,13 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
   const [groupes, setGroupes] = useState<Groupe[]>([]);
   const [matieres, setMatieres] = useState<Matiere[]>([]);
   const [salles, setSalles] = useState<Salle[]>([]);
+  const [etudiants, setEtudiants] = useState<AdminEtudiant[]>([]);
+  const [enseignants, setEnseignants] = useState<AdminEnseignant[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
+
+  // Recherche
+  const [searchEtudiant, setSearchEtudiant] = useState('');
+  const [searchEnseignant, setSearchEnseignant] = useState('');
 
   // États d'exécution
   const [loading, setLoading] = useState<boolean>(true);
@@ -90,19 +100,23 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
   // Chargement global
   const loadAllData = async () => {
     try {
-      const [fetchedDemandes, fetchedStats, fetchedGroupes, fetchedMatieres, fetchedSalles] =
+      const [fetchedDemandes, fetchedStats, fetchedGroupes, fetchedMatieres, fetchedSalles, fetchedEtudiants, fetchedEnseignants] =
         await Promise.all([
           getDemandesInscription(),
           getAdminStats(),
           getGroupes(),
           getMatieres(),
           getSalles(),
+          getAllEtudiants(),
+          getAllEnseignants(),
         ]);
       setDemandes(fetchedDemandes);
       setStats(fetchedStats);
       setGroupes(fetchedGroupes);
       setMatieres(fetchedMatieres);
       setSalles(fetchedSalles);
+      setEtudiants(fetchedEtudiants);
+      setEnseignants(fetchedEnseignants);
     } catch (error: any) {
       console.error('[AdminHomeScreen] Erreur chargement:', error);
     } finally {
@@ -120,6 +134,72 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
     setFeedbackMessage(null);
     loadAllData();
   };
+
+  // Suppression Étudiant
+  const handleDeleteEtudiant = (id: number, nomComplet: string) => {
+    Alert.alert('Confirmation', `Supprimer définitivement l'étudiant ${nomComplet} ainsi que son compte ?`, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteEtudiant(id);
+            setFeedbackMessage(`Étudiant ${nomComplet} supprimé.`);
+            loadAllData();
+          } catch (err: any) {
+            Alert.alert('Erreur', err.message || 'Suppression impossible.');
+          }
+        },
+      },
+    ]);
+  };
+
+  // Suppression Enseignant
+  const handleDeleteEnseignant = (id: number, nomComplet: string) => {
+    Alert.alert('Confirmation', `Supprimer définitivement l'enseignant ${nomComplet} ainsi que son compte ?`, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteEnseignant(id);
+            setFeedbackMessage(`Enseignant ${nomComplet} supprimé.`);
+            loadAllData();
+          } catch (err: any) {
+            Alert.alert('Erreur', err.message || 'Suppression impossible.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const filteredEtudiants = etudiants.filter((e) => {
+    const q = searchEtudiant.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (e.nom && e.nom.toLowerCase().includes(q)) ||
+      (e.prenom && e.prenom.toLowerCase().includes(q)) ||
+      (e.email && e.email.toLowerCase().includes(q)) ||
+      (e.matricule && e.matricule.toLowerCase().includes(q)) ||
+      (e.cne && e.cne.toLowerCase().includes(q)) ||
+      (e.groupeCode && e.groupeCode.toLowerCase().includes(q))
+    );
+  });
+
+  const filteredEnseignants = enseignants.filter((p) => {
+    const q = searchEnseignant.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (p.nom && p.nom.toLowerCase().includes(q)) ||
+      (p.prenom && p.prenom.toLowerCase().includes(q)) ||
+      (p.email && p.email.toLowerCase().includes(q)) ||
+      (p.matricule && p.matricule.toLowerCase().includes(q)) ||
+      (p.departement && p.departement.toLowerCase().includes(q)) ||
+      (p.specialite && p.specialite.toLowerCase().includes(q))
+    );
+  });
 
   // Traitement Inscription : Accepter
   const handleAccepter = async (demande: DemandeInscription) => {
@@ -371,6 +451,14 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
           {/* KPI Synthétiques en Grille */}
           <View style={styles.kpiRow}>
             <View style={styles.kpiSmallCard}>
+              <Text style={styles.kpiSmallLabel}>ÉTUDIANTS</Text>
+              <Text style={styles.kpiSmallValue}>{etudiants.length}</Text>
+            </View>
+            <View style={styles.kpiSmallCard}>
+              <Text style={styles.kpiSmallLabel}>PROFESSEURS</Text>
+              <Text style={styles.kpiSmallValue}>{enseignants.length}</Text>
+            </View>
+            <View style={styles.kpiSmallCard}>
               <Text style={styles.kpiSmallLabel}>CLASSES</Text>
               <Text style={styles.kpiSmallValue}>{groupes.length}</Text>
             </View>
@@ -378,26 +466,49 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
               <Text style={styles.kpiSmallLabel}>MODULES</Text>
               <Text style={styles.kpiSmallValue}>{matieres.length}</Text>
             </View>
-            <View style={styles.kpiSmallCard}>
-              <Text style={styles.kpiSmallLabel}>SALLES</Text>
-              <Text style={styles.kpiSmallValue}>{salles.length}</Text>
-            </View>
             <View style={[styles.kpiSmallCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
               <Text style={[styles.kpiSmallLabel, { color: '#1D4ED8' }]}>EN ATTENTE</Text>
               <Text style={[styles.kpiSmallValue, { color: '#1D4ED8' }]}>{demandes.length}</Text>
             </View>
           </View>
 
-          {/* Barre d'Onglets d'Administration */}
-          <View style={styles.adminTabBar}>
+          {/* Barre d'Onglets d'Administration avec défilement horizontal fluide */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.adminTabBarScroll}
+            style={styles.adminTabBarWrapper}
+          >
             <TouchableOpacity
               style={[styles.adminTabBtn, activeTab === 'DEMANDES' && styles.adminTabBtnActive]}
               onPress={() => setActiveTab('DEMANDES')}
               activeOpacity={0.8}
             >
-              <Feather name="users" size={13} color={activeTab === 'DEMANDES' ? '#1E293B' : '#64748B'} />
+              <Feather name="clock" size={12} color={activeTab === 'DEMANDES' ? '#1E293B' : '#64748B'} />
               <Text style={[styles.adminTabBtnText, activeTab === 'DEMANDES' && styles.adminTabBtnTextActive]}>
                 Inscriptions {demandes.length > 0 ? `(${demandes.length})` : ''}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.adminTabBtn, activeTab === 'ETUDIANTS' && styles.adminTabBtnActive]}
+              onPress={() => setActiveTab('ETUDIANTS')}
+              activeOpacity={0.8}
+            >
+              <Feather name="users" size={12} color={activeTab === 'ETUDIANTS' ? '#1E293B' : '#64748B'} />
+              <Text style={[styles.adminTabBtnText, activeTab === 'ETUDIANTS' && styles.adminTabBtnTextActive]}>
+                Étudiants ({etudiants.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.adminTabBtn, activeTab === 'ENSEIGNANTS' && styles.adminTabBtnActive]}
+              onPress={() => setActiveTab('ENSEIGNANTS')}
+              activeOpacity={0.8}
+            >
+              <Feather name="briefcase" size={12} color={activeTab === 'ENSEIGNANTS' ? '#1E293B' : '#64748B'} />
+              <Text style={[styles.adminTabBtnText, activeTab === 'ENSEIGNANTS' && styles.adminTabBtnTextActive]}>
+                Professeurs ({enseignants.length})
               </Text>
             </TouchableOpacity>
 
@@ -406,7 +517,7 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
               onPress={() => setActiveTab('GROUPES')}
               activeOpacity={0.8}
             >
-              <Feather name="layers" size={13} color={activeTab === 'GROUPES' ? '#1E293B' : '#64748B'} />
+              <Feather name="layers" size={12} color={activeTab === 'GROUPES' ? '#1E293B' : '#64748B'} />
               <Text style={[styles.adminTabBtnText, activeTab === 'GROUPES' && styles.adminTabBtnTextActive]}>
                 Classes ({groupes.length})
               </Text>
@@ -417,7 +528,7 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
               onPress={() => setActiveTab('MATIERES')}
               activeOpacity={0.8}
             >
-              <Feather name="book" size={13} color={activeTab === 'MATIERES' ? '#1E293B' : '#64748B'} />
+              <Feather name="book" size={12} color={activeTab === 'MATIERES' ? '#1E293B' : '#64748B'} />
               <Text style={[styles.adminTabBtnText, activeTab === 'MATIERES' && styles.adminTabBtnTextActive]}>
                 Modules ({matieres.length})
               </Text>
@@ -428,12 +539,12 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
               onPress={() => setActiveTab('SALLES')}
               activeOpacity={0.8}
             >
-              <Feather name="home" size={13} color={activeTab === 'SALLES' ? '#1E293B' : '#64748B'} />
+              <Feather name="home" size={12} color={activeTab === 'SALLES' ? '#1E293B' : '#64748B'} />
               <Text style={[styles.adminTabBtnText, activeTab === 'SALLES' && styles.adminTabBtnTextActive]}>
                 Salles ({salles.length})
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
 
           {/* =========================================================================
               ONGLET 1 : DEMANDES D'INSCRIPTION EN ATTENTE
@@ -513,6 +624,236 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
                               </>
                             )}
                           </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* =========================================================================
+              ONGLET : LISTE DES ÉTUDIANTS
+             ========================================================================= */}
+          {activeTab === 'ETUDIANTS' && (
+            <View>
+              <View style={styles.tabSectionHeader}>
+                <Text style={styles.tabSectionTitle}>
+                  ÉTUDIANTS INSCRITS ({filteredEtudiants.length} / {etudiants.length})
+                </Text>
+                <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
+                  <Feather name="rotate-cw" size={13} color="#64748B" />
+                  <Text style={styles.refreshBtnText}>Actualiser</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Barre de Recherche Étudiant */}
+              <View style={styles.searchContainer}>
+                <Feather name="search" size={14} color="#64748B" />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Rechercher par nom, matricule, classe, CNE..."
+                  placeholderTextColor="#94A3B8"
+                  value={searchEtudiant}
+                  onChangeText={setSearchEtudiant}
+                />
+                {searchEtudiant.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchEtudiant('')}>
+                    <Feather name="x" size={14} color="#64748B" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {loading ? (
+                <ActivityIndicator size="small" color={theme.colors.primaryDark} style={{ marginVertical: 20 }} />
+              ) : filteredEtudiants.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <Feather name="users" size={26} color="#94A3B8" />
+                  <Text style={styles.emptyCardTitle}>
+                    {searchEtudiant ? 'Aucun résultat trouvé' : 'Aucun étudiant inscrit'}
+                  </Text>
+                  <Text style={styles.emptyCardSub}>
+                    {searchEtudiant
+                      ? 'Essayez avec un autre terme de recherche.'
+                      : 'Les étudiants validés par l\'administrateur apparaîtront ici.'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: 10 }}>
+                  {filteredEtudiants.map((etu) => {
+                    const initials = `${etu.prenom?.[0] || ''}${etu.nom?.[0] || ''}`.toUpperCase() || 'E';
+                    return (
+                      <View key={etu.id} style={styles.userCard}>
+                        <View style={styles.userCardHeader}>
+                          <View style={styles.userAvatarCircle}>
+                            <Text style={styles.userAvatarText}>{initials}</Text>
+                          </View>
+
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <Text style={styles.userName}>{etu.nom} {etu.prenom}</Text>
+                              {etu.groupeCode ? (
+                                <View style={styles.userClassBadge}>
+                                  <Text style={styles.userClassBadgeText}>{etu.groupeCode}</Text>
+                                </View>
+                              ) : (
+                                <View style={[styles.userClassBadge, { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }]}>
+                                  <Text style={[styles.userClassBadgeText, { color: '#64748B' }]}>Sans classe</Text>
+                                </View>
+                              )}
+                            </View>
+
+                            <Text style={styles.userEmailText}>{etu.email}</Text>
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.deleteUserBtn}
+                            onPress={() => handleDeleteEtudiant(etu.id, `${etu.prenom} ${etu.nom}`)}
+                          >
+                            <Feather name="trash-2" size={14} color="#DC2626" />
+                          </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.userCardFooter}>
+                          <View style={styles.userInfoChip}>
+                            <Feather name="hash" size={11} color="#64748B" />
+                            <Text style={styles.userInfoChipText}>{etu.matricule || 'N/A'}</Text>
+                          </View>
+
+                          {etu.cne ? (
+                            <View style={styles.userInfoChip}>
+                              <Feather name="credit-card" size={11} color="#64748B" />
+                              <Text style={styles.userInfoChipText}>{etu.cne}</Text>
+                            </View>
+                          ) : null}
+
+                          {etu.telephone ? (
+                            <View style={styles.userInfoChip}>
+                              <Feather name="phone" size={11} color="#64748B" />
+                              <Text style={styles.userInfoChipText}>{etu.telephone}</Text>
+                            </View>
+                          ) : null}
+
+                          <View style={[styles.userInfoChip, { backgroundColor: etu.actif ? '#ECFDF5' : '#FEF2F2', borderColor: etu.actif ? '#A7F3D0' : '#FECACA', marginLeft: 'auto' }]}>
+                            <View style={[styles.statusDot, { backgroundColor: etu.actif ? '#10B981' : '#EF4444' }]} />
+                            <Text style={[styles.userInfoChipText, { color: etu.actif ? '#047857' : '#B91C1C', fontWeight: '700' }]}>
+                              {etu.actif ? 'Actif' : 'En attente'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* =========================================================================
+              ONGLET : LISTE DES PROFESSEURS / ENSEIGNANTS
+             ========================================================================= */}
+          {activeTab === 'ENSEIGNANTS' && (
+            <View>
+              <View style={styles.tabSectionHeader}>
+                <Text style={styles.tabSectionTitle}>
+                  CORPS ENSEIGNANT ({filteredEnseignants.length} / {enseignants.length})
+                </Text>
+                <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
+                  <Feather name="rotate-cw" size={13} color="#64748B" />
+                  <Text style={styles.refreshBtnText}>Actualiser</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Barre de Recherche Professeur */}
+              <View style={styles.searchContainer}>
+                <Feather name="search" size={14} color="#64748B" />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Rechercher par nom, département, spécialité..."
+                  placeholderTextColor="#94A3B8"
+                  value={searchEnseignant}
+                  onChangeText={setSearchEnseignant}
+                />
+                {searchEnseignant.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchEnseignant('')}>
+                    <Feather name="x" size={14} color="#64748B" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {loading ? (
+                <ActivityIndicator size="small" color={theme.colors.primaryDark} style={{ marginVertical: 20 }} />
+              ) : filteredEnseignants.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <Feather name="award" size={26} color="#94A3B8" />
+                  <Text style={styles.emptyCardTitle}>
+                    {searchEnseignant ? 'Aucun résultat trouvé' : 'Aucun enseignant inscrit'}
+                  </Text>
+                  <Text style={styles.emptyCardSub}>
+                    {searchEnseignant
+                      ? 'Essayez avec un autre nom ou département.'
+                      : 'Les professeurs validés par l\'administrateur apparaîtront ici.'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: 10 }}>
+                  {filteredEnseignants.map((prof) => {
+                    const initials = `${prof.prenom?.[0] || ''}${prof.nom?.[0] || ''}`.toUpperCase() || 'P';
+                    return (
+                      <View key={prof.id} style={styles.userCard}>
+                        <View style={styles.userCardHeader}>
+                          <View style={[styles.userAvatarCircle, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+                            <Text style={[styles.userAvatarText, { color: '#166534' }]}>{initials}</Text>
+                          </View>
+
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <Text style={styles.userName}>{prof.nom} {prof.prenom}</Text>
+                              <View style={[styles.userClassBadge, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                                <Text style={[styles.userClassBadgeText, { color: '#047857' }]}>
+                                  {prof.departement || 'Génie Informatique'}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <Text style={styles.userEmailText}>{prof.email}</Text>
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.deleteUserBtn}
+                            onPress={() => handleDeleteEnseignant(prof.id, `${prof.prenom} ${prof.nom}`)}
+                          >
+                            <Feather name="trash-2" size={14} color="#DC2626" />
+                          </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.userCardFooter}>
+                          <View style={styles.userInfoChip}>
+                            <Feather name="hash" size={11} color="#64748B" />
+                            <Text style={styles.userInfoChipText}>{prof.matricule || 'N/A'}</Text>
+                          </View>
+
+                          {prof.specialite ? (
+                            <View style={styles.userInfoChip}>
+                              <Feather name="book-open" size={11} color="#64748B" />
+                              <Text style={styles.userInfoChipText}>{prof.specialite}</Text>
+                            </View>
+                          ) : null}
+
+                          {prof.telephone ? (
+                            <View style={styles.userInfoChip}>
+                              <Feather name="phone" size={11} color="#64748B" />
+                              <Text style={styles.userInfoChipText}>{prof.telephone}</Text>
+                            </View>
+                          ) : null}
+
+                          <View style={[styles.userInfoChip, { backgroundColor: prof.actif ? '#ECFDF5' : '#FEF2F2', borderColor: prof.actif ? '#A7F3D0' : '#FECACA', marginLeft: 'auto' }]}>
+                            <View style={[styles.statusDot, { backgroundColor: prof.actif ? '#10B981' : '#EF4444' }]} />
+                            <Text style={[styles.userInfoChipText, { color: prof.actif ? '#047857' : '#B91C1C', fontWeight: '700' }]}>
+                              {prof.actif ? 'Actif' : 'En attente'}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     );
@@ -1368,5 +1709,120 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: theme.colors.textSecondary,
+  },
+  adminTabBarWrapper: {
+    marginBottom: 14,
+  },
+  adminTabBarScroll: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    borderRadius: theme.radius.sm,
+    padding: 3,
+    gap: 3,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+    marginBottom: 12,
+    ...theme.shadows.subtle,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 12.5,
+    color: theme.colors.textMain,
+    padding: 0,
+  },
+  userCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    ...theme.shadows.subtle,
+  },
+  userCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
+  userAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userAvatarText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  userName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.textMain,
+  },
+  userClassBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  userClassBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
+  userEmailText: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginTop: 1,
+  },
+  deleteUserBtn: {
+    padding: 6,
+    borderRadius: 4,
+  },
+  userCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 8,
+    marginTop: 2,
+  },
+  userInfoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  userInfoChipText: {
+    fontSize: 10.5,
+    color: '#475569',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });

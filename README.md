@@ -58,8 +58,13 @@ Conformément aux exigences de sécurité, **aucun compte ni mot de passe n'est 
    * Chaque demande est transmise à l'administrateur en attente de validation (`actif = false`).
    * L'administrateur valide ou refuse les inscriptions depuis son tableau de bord.
 
-* **Groupes académiques initialisés :** `GI4-A`, `GI4-B` (Génie Informatique 4ème Année).
-* **Module académique initialisé :** `GL401` — Génie Logiciel & Design Patterns.
+3. **Architecture Zéro-Seeder & Autonomie Administrateur :**
+   * Aucun groupe, module, salle ni faux profil n'est codé en dur en base de données.
+   * L'administrateur gère l'ensemble de l'infrastructure académique depuis son hub de pilotage :
+     * **Salles de classe :** Création et dimensionnement des salles de cours et laboratoires.
+     * **Modules / Matières :** Définition des modules, coefficients et volumes horaires.
+     * **Classes & Promotions :** Création des classes et association aux modules d'enseignement.
+   * **Garde-fous intelligents à l'inscription :** Les inscriptions des étudiants et des enseignants sont automatiquement conditionnées par la configuration préalable des classes et modules par l'administrateur.
 
 ---
 

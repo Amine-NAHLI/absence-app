@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '../config/api';
 import { DemandeInscription } from '../types/auth';
-import { DisponibiliteInscriptions, Groupe, Matiere, Salle } from '../types/academic';
+import { AdminEnseignant, AdminEtudiant, DisponibiliteInscriptions, Groupe, Matiere, Salle } from '../types/academic';
 
 export interface AdminStats {
   totalEtudiants: number;
@@ -221,3 +221,48 @@ export const purgeComplete = async (): Promise<{ success: boolean; message: stri
   if (!response.ok) throw new Error(data?.message || 'Erreur purge base');
   return data;
 };
+
+// =============================================================================
+// 7. GESTION DES ÉTUDIANTS & ENSEIGNANTS
+// =============================================================================
+
+export const getAllEtudiants = async (): Promise<AdminEtudiant[]> => {
+  const url = `${API_BASE_URL}/admin/etudiants`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Erreur récupération étudiants (${response.status})`);
+    return await response.json();
+  } catch (error) {
+    console.error('[AdminService] getAllEtudiants error:', error);
+    return [];
+  }
+};
+
+export const deleteEtudiant = async (id: number): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/etudiants/${id}`;
+  const response = await fetch(url, { method: 'DELETE' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur suppression étudiant');
+  return data;
+};
+
+export const getAllEnseignants = async (): Promise<AdminEnseignant[]> => {
+  const url = `${API_BASE_URL}/admin/enseignants`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Erreur récupération enseignants (${response.status})`);
+    return await response.json();
+  } catch (error) {
+    console.error('[AdminService] getAllEnseignants error:', error);
+    return [];
+  }
+};
+
+export const deleteEnseignant = async (id: number): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/enseignants/${id}`;
+  const response = await fetch(url, { method: 'DELETE' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur suppression enseignant');
+  return data;
+};
+

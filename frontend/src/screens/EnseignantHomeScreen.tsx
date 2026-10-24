@@ -13,9 +13,11 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { UserSession } from '../types/auth';
+import { Groupe, Matiere, Salle } from '../types/academic';
 import { HeaderBar } from '../components/HeaderBar';
 import { theme } from '../theme/theme';
 import {
+  demarrerOuObtenirSeance,
   enregistrerAppel,
   EtudiantItem,
   getAbsentsForSeance,
@@ -26,30 +28,41 @@ import {
   getJustificatifsEnAttente,
   JustificatifReviewItem,
 } from '../services/justificatifService';
+import { getGroupes, getSalles } from '../services/adminService';
 
 interface EnseignantHomeScreenProps {
   session: UserSession;
   onLogout: () => void;
 }
 
-const DEFAULT_STUDENTS: EtudiantItem[] = [
-  { id: 1, userId: 3, nom: 'NAHLI', prenom: 'Amine', email: 'etudiant@upf.ac.ma', matricule: 'ETU-001', cne: 'N130001001', groupeCode: 'GI4-A', absent: false },
-  { id: 2, userId: 4, nom: 'BOUHSINI', prenom: 'Aya', email: 'aya@upf.ac.ma', matricule: 'ETU-002', cne: 'N130001002', groupeCode: 'GI4-A', absent: false },
-  { id: 3, userId: 5, nom: 'ALAMI', prenom: 'Yassine', email: 'yassine@upf.ac.ma', matricule: 'ETU-003', cne: 'N130001003', groupeCode: 'GI4-A', absent: true },
-  { id: 4, userId: 6, nom: 'BENNANI', prenom: 'Salma', email: 'salma@upf.ac.ma', matricule: 'ETU-004', cne: 'N130001004', groupeCode: 'GI4-A', absent: false },
-  { id: 5, userId: 7, nom: 'CHRAIBI', prenom: 'Omar', email: 'omar@upf.ac.ma', matricule: 'ETU-005', cne: 'N130001005', groupeCode: 'GI4-A', absent: false },
+const CRENEAUX = [
+  { label: '08:30 — 10:15', debut: '08:30', fin: '10:15' },
+  { label: '10:30 — 12:15', debut: '10:30', fin: '12:15' },
+  { label: '14:00 — 15:45', debut: '14:00', fin: '15:45' },
+  { label: '16:00 — 17:45', debut: '16:00', fin: '17:45' },
 ];
 
 export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
   session,
   onLogout,
 }) => {
-  const [etudiants, setEtudiants] = useState<EtudiantItem[]>(DEFAULT_STUDENTS);
+  const [etudiants, setEtudiants] = useState<EtudiantItem[]>([]);
   const [justificatifs, setJustificatifs] = useState<JustificatifReviewItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Données dynamiques académiques
+  const [groupes, setGroupes] = useState<Groupe[]>([]);
+  const [salles, setSalles] = useState<Salle[]>([]);
+  const [selectedGroupe, setSelectedGroupe] = useState<Groupe | null>(null);
+  const [selectedMatiere, setSelectedMatiere] = useState<Matiere | null>(null);
+  const [selectedSalleCode, setSelectedSalleCode] = useState<string>('LABO-03');
+  const [selectedCreneau, setSelectedCreneau] = useState<string>('08:30 — 10:15');
+  const [selectedTypeSeance, setSelectedTypeSeance] = useState<string>('COURS');
+  const [showConfig, setShowConfig] = useState<boolean>(false);
+  const [activeSeanceId, setActiveSeanceId] = useState<number | null>(null);
 
   // État modale de rejet avec motif (US09)
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
@@ -57,28 +70,54 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
   const [rejectReason, setRejectReason] = useState('Certificat non conforme ou délai de 48h dépassé.');
   const [arbitratingId, setArbitratingId] = useState<number | null>(null);
 
-  const seanceId = 1;
-  const groupeId = 1;
-
-  useEffect(() => {
-    loadAllData();
-  }, []);
-
-  const loadAllData = async () => {
-    setLoading(true);
-    setErrorMessage(null);
+  const loadStudentsForGroupe = async (grpId: number, seanceIdToSync?: number) => {
     try {
-      // 1. Charger les étudiants du groupe (US02)
-      const students = await getEtudiantsByGroupe(groupeId);
-      const alreadyAbsentIds = await getAbsentsForSeance(seanceId);
-
+      const students = await getEtudiantsByGroupe(grpId);
+      let alreadyAbsentIds: number[] = [];
+      if (seanceIdToSync) {
+        alreadyAbsentIds = await getAbsentsForSeance(seanceIdToSync);
+      }
       const updated = students.map((s) => ({
         ...s,
         absent: alreadyAbsentIds.includes(s.id),
       }));
       setEtudiants(updated);
     } catch {
-      setEtudiants(DEFAULT_STUDENTS);
+      setEtudiants([]);
+    }
+  };
+
+  const loadAllData = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      // 1. Charger les classes et salles créées par l'administrateur
+      const [fetchedGroupes, fetchedSalles] = await Promise.all([
+        getGroupes(),
+        getSalles(),
+      ]);
+      setGroupes(fetchedGroupes);
+      setSalles(fetchedSalles);
+
+      let currentGroupe = selectedGroupe;
+      if (!currentGroupe && fetchedGroupes.length > 0) {
+        currentGroupe = fetchedGroupes[0];
+        setSelectedGroupe(currentGroupe);
+      }
+
+      if (currentGroupe) {
+        if (!selectedMatiere && currentGroupe.matieres && currentGroupe.matieres.length > 0) {
+          setSelectedMatiere(currentGroupe.matieres[0]);
+        }
+        if (fetchedSalles.length > 0 && !selectedSalleCode) {
+          setSelectedSalleCode(fetchedSalles[0].code);
+        }
+        await loadStudentsForGroupe(currentGroupe.id, activeSeanceId || undefined);
+      } else {
+        setEtudiants([]);
+      }
+    } catch (err: any) {
+      console.error('[EnseignantHomeScreen] Erreur chargement initial:', err);
     }
 
     try {
@@ -86,28 +125,23 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
       const pendingJustifs = await getJustificatifsEnAttente();
       setJustificatifs(pendingJustifs);
     } catch {
-      // Fallback démo : initialiser un justificatif d'exemple si aucun n'est encore soumis
-      setJustificatifs([
-        {
-          id: 1,
-          absenceId: 1,
-          etudiantId: 1,
-          etudiantNom: 'NAHLI Amine',
-          etudiantMatricule: 'ETU-001',
-          groupeCode: 'GI4-A',
-          matiereCode: 'GL401',
-          matiereNom: 'Génie Logiciel',
-          dateSeance: "Aujourd'hui",
-          nomFichier: 'Certificat_Medical_Amine_Dr_Alami.pdf',
-          typeMime: 'application/pdf',
-          tailleOctets: 248000,
-          dateDepot: "Aujourd'hui, 09:15",
-          statut: 'EN_ATTENTE',
-        },
-      ]);
+      setJustificatifs([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadAllData();
+  }, []);
+
+  const handleSelectGroupe = async (grp: Groupe) => {
+    setSelectedGroupe(grp);
+    const firstMatiere = grp.matieres && grp.matieres.length > 0 ? grp.matieres[0] : null;
+    setSelectedMatiere(firstMatiere);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    await loadStudentsForGroupe(grp.id);
   };
 
   /**
@@ -121,13 +155,27 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
   };
 
   /**
-   * US03 : Enregistrer l'appel avec règle anti-doublon.
+   * US03 : Enregistrer l'appel avec règle anti-doublon et réservation de la séance.
    */
   const handleSaveAppel = async () => {
+    if (!selectedGroupe) {
+      Alert.alert('Attention', 'Veuillez sélectionner une classe.');
+      return;
+    }
+    if (!selectedMatiere) {
+      Alert.alert('Attention', 'Veuillez sélectionner un module d\'enseignement.');
+      return;
+    }
+    if (etudiants.length === 0) {
+      Alert.alert('Classe vide', 'Aucun étudiant n\'est inscrit dans cette promotion.');
+      return;
+    }
+
     setSaving(true);
     setSuccessMessage(null);
     setErrorMessage(null);
 
+    const creneauObj = CRENEAUX.find((c) => c.label === selectedCreneau) || CRENEAUX[0];
     const absentsList = etudiants
       .filter((e) => e.absent)
       .map((e) => ({
@@ -136,18 +184,31 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
       }));
 
     try {
+      // 1. Démarrer ou obtenir la séance dans la salle choisie
+      const seance = await demarrerOuObtenirSeance({
+        enseignantId: session.enseignantId || session.id,
+        groupeId: selectedGroupe.id,
+        matiereId: selectedMatiere.id,
+        salle: selectedSalleCode || 'LABO-03',
+        typeSeance: selectedTypeSeance,
+        heureDebut: creneauObj.debut,
+        heureFin: creneauObj.fin,
+      });
+
+      setActiveSeanceId(seance.id);
+
+      // 2. Enregistrer l'appel avec contrôle anti-doublon
       await enregistrerAppel(
-        seanceId,
-        session.enseignantId || 1,
+        seance.id,
+        session.enseignantId || session.id,
         absentsList
       );
+
       setSuccessMessage(
-        `Émargement synchronisé avec succès (${absentsList.length} absent(s) enregistré(s)).`
+        `Émargement validé avec succès pour ${selectedGroupe.code} en Salle ${selectedSalleCode} (${absentsList.length} absent(s)).`
       );
-    } catch {
-      setSuccessMessage(
-        `Émargement validé en mode local sécurisé (${absentsList.length} absent(s)).`
-      );
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Erreur lors de la validation de l\'émargement.');
     } finally {
       setSaving(false);
     }
@@ -213,7 +274,7 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
     <SafeAreaView style={styles.safeArea}>
       <HeaderBar
         title="Feuille d'Émargement"
-        subtitle="GI4-A • Séance Active"
+        subtitle={selectedGroupe ? `${selectedGroupe.code} • ${selectedSalleCode || 'Salle'}` : "Séance Active"}
         userInitial={initial}
         onLogout={onLogout}
       />
@@ -227,43 +288,173 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
         <View style={styles.sectionHeading}>
           <Text style={styles.teacherTitle}>{teacherName}</Text>
           <Text style={styles.teacherDept}>
-            Département Génie Informatique • Module Pédagogique
+            Département {session.departement || 'Génie Informatique'} • Émargement en Direct
           </Text>
         </View>
 
-        {/* 1. Carte Séance Active Apple FinTech */}
-        <View style={styles.sessionCard}>
-          <View style={styles.sessionCardTop}>
-            <View style={styles.moduleTag}>
-              <Text style={styles.moduleTagText}>GL401</Text>
-            </View>
-            <Text style={styles.sessionCourseName}>Génie Logiciel & Méthodes Agiles</Text>
-          </View>
-
-          {/* Métadonnées de salle & horaire */}
-          <View style={styles.metadataGrid}>
-            <View style={styles.metadataPill}>
-              <Feather name="calendar" size={12} color={theme.colors.textMuted} />
-              <Text style={styles.metadataPillText}>Aujourd'hui</Text>
-            </View>
-            <View style={styles.metadataPill}>
-              <Feather name="clock" size={12} color={theme.colors.textMuted} />
-              <Text style={styles.metadataPillText}>08:30 — 10:15</Text>
-            </View>
-            <View style={styles.metadataPill}>
-              <Feather name="map-pin" size={12} color={theme.colors.textMuted} />
-              <Text style={styles.metadataPillText}>Labo 3</Text>
-            </View>
-          </View>
-
-          {/* Règle anti-doublon */}
-          <View style={styles.ruleNotice}>
-            <Feather name="shield" size={13} color={theme.colors.infoBoxText} />
-            <Text style={styles.ruleNoticeText}>
-              Groupe GI4-A • Contrôle anti-doublon d'émargement actif.
+        {/* Alerte si aucune classe n'existe */}
+        {groupes.length === 0 && !loading && (
+          <View style={styles.emptyGroupesAlert}>
+            <Feather name="alert-triangle" size={16} color="#D97706" />
+            <Text style={styles.emptyGroupesAlertText}>
+              Aucune classe créée. L'administration n'a pas encore configuré les promotions et les modules.
             </Text>
           </View>
-        </View>
+        )}
+
+        {/* 1. Carte de Séance & Réservation de Salle Dynamique */}
+        {groupes.length > 0 && (
+          <View style={styles.sessionCard}>
+            <View style={styles.sessionCardTop}>
+              <View style={styles.moduleTag}>
+                <Text style={styles.moduleTagText}>{selectedMatiere?.code || 'MODULE'}</Text>
+              </View>
+              <Text style={styles.sessionCourseName} numberOfLines={1}>
+                {selectedMatiere?.nom || 'Sélectionnez un module'}
+              </Text>
+
+              <TouchableOpacity
+                style={styles.configToggleBtn}
+                onPress={() => setShowConfig(!showConfig)}
+                activeOpacity={0.8}
+              >
+                <Feather name={showConfig ? 'chevron-up' : 'sliders'} size={12} color="#1D4ED8" />
+                <Text style={styles.configToggleText}>{showConfig ? 'Fermer' : 'Séance & Salle'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Métadonnées de salle & horaire sélectionnées */}
+            <View style={styles.metadataGrid}>
+              <View style={styles.metadataPill}>
+                <Feather name="layers" size={11} color={theme.colors.textMuted} />
+                <Text style={styles.metadataPillText}>{selectedGroupe?.code || 'Classe'}</Text>
+              </View>
+              <View style={styles.metadataPill}>
+                <Feather name="map-pin" size={11} color={theme.colors.textMuted} />
+                <Text style={styles.metadataPillText}>{selectedSalleCode || 'Salle'}</Text>
+              </View>
+              <View style={styles.metadataPill}>
+                <Feather name="clock" size={11} color={theme.colors.textMuted} />
+                <Text style={styles.metadataPillText}>{selectedCreneau}</Text>
+              </View>
+              <View style={styles.metadataPill}>
+                <Text style={[styles.metadataPillText, { fontWeight: '800' }]}>{selectedTypeSeance}</Text>
+              </View>
+            </View>
+
+            {/* Panneau de configuration dépliable de la séance & salle */}
+            {showConfig && (
+              <View style={styles.sessionConfigBox}>
+                {/* 1. Choisir la classe */}
+                <Text style={styles.configLabel}>1. CHOISIR LA CLASSE / PROMOTION</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                  {groupes.map((grp) => {
+                    const active = selectedGroupe?.id === grp.id;
+                    return (
+                      <TouchableOpacity
+                        key={grp.id}
+                        style={[styles.choiceChip, active && styles.choiceChipActive]}
+                        onPress={() => handleSelectGroupe(grp)}
+                      >
+                        <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                          {grp.code}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* 2. Choisir le module */}
+                <Text style={styles.configLabel}>2. CHOISIR LE MODULE</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                  {selectedGroupe?.matieres && selectedGroupe.matieres.length > 0 ? (
+                    selectedGroupe.matieres.map((mat) => {
+                      const active = selectedMatiere?.id === mat.id;
+                      return (
+                        <TouchableOpacity
+                          key={mat.id}
+                          style={[styles.choiceChip, active && styles.choiceChipActive]}
+                          onPress={() => setSelectedMatiere(mat)}
+                        >
+                          <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                            {mat.code} • {mat.nom}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.configEmptySub}>Aucun module rattaché à cette classe.</Text>
+                  )}
+                </ScrollView>
+
+                {/* 3. Choisir la salle réservée */}
+                <Text style={styles.configLabel}>3. RÉSERVER LA SALLE</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                  {salles.length > 0 ? (
+                    salles.map((sal) => {
+                      const active = selectedSalleCode === sal.code;
+                      return (
+                        <TouchableOpacity
+                          key={sal.id}
+                          style={[styles.choiceChip, active && styles.choiceChipActive]}
+                          onPress={() => setSelectedSalleCode(sal.code)}
+                        >
+                          <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                            {sal.code} ({sal.type})
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.configEmptySub}>Aucune salle configurée par l'admin.</Text>
+                  )}
+                </ScrollView>
+
+                {/* 4. Choisir le créneau */}
+                <Text style={styles.configLabel}>4. CRÉNEAU HORAIRE & TYPE</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                  {CRENEAUX.map((c) => {
+                    const active = selectedCreneau === c.label;
+                    return (
+                      <TouchableOpacity
+                        key={c.label}
+                        style={[styles.choiceChip, active && styles.choiceChipActive]}
+                        onPress={() => setSelectedCreneau(c.label)}
+                      >
+                        <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                          {c.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+                  {['COURS', 'TD', 'TP'].map((t) => {
+                    const active = selectedTypeSeance === t;
+                    return (
+                      <TouchableOpacity
+                        key={t}
+                        style={[styles.choiceChip, active && styles.choiceChipActive, { flex: 1, alignItems: 'center' }]}
+                        onPress={() => setSelectedTypeSeance(t)}
+                      >
+                        <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>{t}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Règle anti-doublon */}
+            <View style={styles.ruleNotice}>
+              <Feather name="shield" size={13} color={theme.colors.infoBoxText} />
+              <Text style={styles.ruleNoticeText}>
+                {selectedGroupe ? `Classe ${selectedGroupe.code}` : 'Promotion'} • Contrôle anti-doublon d'émargement actif.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Messages Feedback */}
         {successMessage && (
@@ -1013,5 +1204,86 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  configToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#EFF6FF',
+    borderRadius: theme.radius.xs,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  configToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  sessionConfigBox: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  configLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginTop: 4,
+  },
+  chipsScroll: {
+    gap: 6,
+    paddingVertical: 2,
+  },
+  choiceChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  choiceChipActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  choiceChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  choiceChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  configEmptySub: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: theme.colors.textMuted,
+    paddingVertical: 4,
+  },
+  emptyGroupesAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: theme.radius.sm,
+    padding: 12,
+    marginBottom: 16,
+  },
+  emptyGroupesAlertText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 16,
+    fontWeight: '500',
   },
 });

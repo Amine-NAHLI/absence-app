@@ -30,3 +30,32 @@ export interface DisponibiliteInscriptions {
   totalClasses: number;
   totalModules: number;
 }
+
+export interface AdminEtudiant {
+  id: number;
+  userId: number;
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone?: string;
+  matricule: string;
+  cne?: string;
+  photoUrl?: string;
+  groupeCode?: string;
+  groupeNom?: string;
+  actif: boolean;
+}
+
+export interface AdminEnseignant {
+  id: number;
+  userId: number;
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone?: string;
+  matricule: string;
+  departement?: string;
+  specialite?: string;
+  actif: boolean;
+}
+

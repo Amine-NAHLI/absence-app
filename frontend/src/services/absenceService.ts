@@ -102,3 +102,32 @@ export const getAbsencesByEtudiant = async (etudiantId: number): Promise<Absence
     throw err;
   }
 };
+
+/**
+ * Démarrer ou obtenir une séance d'appel pour un enseignant, une classe, un module et une salle.
+ */
+export const demarrerOuObtenirSeance = async (params: {
+  enseignantId: number;
+  groupeId: number;
+  matiereId: number;
+  salle?: string;
+  typeSeance?: string;
+  heureDebut?: string;
+  heureFin?: string;
+}): Promise<any> => {
+  const url = `${API_BASE_URL}/seances/demarrer`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || 'Erreur initialisation de la séance');
+    return data;
+  } catch (err) {
+    console.error('[AbsenceService] demarrerOuObtenirSeance error:', err);
+    throw err;
+  }
+};
+
