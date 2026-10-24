@@ -32,7 +32,7 @@ Aya intervient sur une application dont le cœur fonctionne déjà (utilisateurs
 | **US15** | Ajouter un enseignant par l'administration (département, matière) | Admin | **3 SP** | Moyenne |
 | **US16** | Gérer les groupes, filières et affectations de cours | Admin | **5 SP** | Haute |
 | **US17** | Consulter les statistiques globales d'absence sous forme graphique (BI) | Admin / Direction | **8 SP** | Haute |
-| **US18** | Envoyer une notification push lors de l'enregistrement d'une absence | Système / Push | **5 SP** | Moyenne |
+| **US18** | Envoyer une notification en temps réel lors d'une absence via **WebSockets (SockJS / STOMP)** *(Contournement blocage SDK Expo push)* | Système / WebSocket | **5 SP** | Moyenne |
 
 **Sous-total Partie 2 (Aya) : 41 Story Points**
 
@@ -52,8 +52,10 @@ Aya intervient sur une application dont le cœur fonctionne déjà (utilisateurs
   - `PUT /api/admin/etudiants/{id}` : mise à jour de la fiche étudiant.
   - `POST /api/admin/enseignants` : création d'enseignants.
   - `POST /api/admin/groupes` & `PUT /api/admin/groupes/{id}/affectations` : gestion des filières et cours.
-- [ ] **`NotificationService` (US18) :**
-  - `POST /api/notifications/push` : déclenchement d'alerte instantanée lorsqu'une absence est enregistrée.
+- [ ] **`WebSocketNotificationService` (US18 — Déviation Technique justifiée) :**
+  - Mise en place du broker de messages WebSocket (`WebSocketConfig` avec STOMP + SockJS).
+  - Diffusion instantanée sur `/topic/etudiant/{id}/absences` dès qu'une absence est enregistrée par l'enseignant.
+  - *Justification technique :* Le SDK Expo actuel (Expo Go) bloque les notifications push distantes (FCM / APNs) sans configuration EAS Build et compte payant. L'utilisation des WebSockets garantit des alertes temps réel immédiates et fiables.
 
 ### 2. Frontend Mobile React Native (`frontend/`)
 - [ ] **Écran Historique & Taux d'absentéisme (US10, US11) :**
@@ -63,8 +65,9 @@ Aya intervient sur une application dont le cœur fonctionne déjà (utilisateurs
 - [ ] **Espace Administration & Gestion Scolarité (`AdminHomeScreen.tsx` - US13, US14, US15, US16, US17) :**
   - Formulaires d'ajout rapide d'étudiants, enseignants et groupes.
   - Graphiques visuels et barres de progression d'assiduité par groupe (GI4-A / GI4-B).
-- [ ] **Module de Notifications Push (US18) :**
-  - Intégration des notifications locales et push via `expo-notifications`.
+- [ ] **Module d'Alerte Temps Réel WebSocket (US18) :**
+  - Connexion au flux WebSocket du backend lors de la connexion de l'étudiant.
+  - Bannière animée in-app et vibration lors de la réception d'une alerte d'absence.
 
 ---
 

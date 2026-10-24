@@ -1,15 +1,57 @@
-# Environnement & Secrets
+# ==========================================
+# Fichiers de Présentation & Médias Lourds
+# ==========================================
+docs/pics-presentation/
+docs/presentation/
+
+# ==========================================
+# Environnement & Données Confidentielles
+# ==========================================
 .env
 .env.local
 .env.*.local
 *.env
+backend/.env
 
-# IDEs
+# ==========================================
+# Backend (Spring Boot / Maven / Java)
+# ==========================================
+**/target/
+*.class
+*.jar
+*.war
+backend/uploads/
+.mvn/timing.properties
+
+# ==========================================
+# Frontend (React Native / Expo / Node.js)
+# ==========================================
+**/node_modules/
+**/.expo/
+**/dist/
+**/web-build/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tsbuildinfo
+
+# ==========================================
+# IDEs & Éditeurs de Code
+# ==========================================
 .idea/
 .vscode/
 *.swp
 *.swo
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
 
-# OS
+# ==========================================
+# Système d'Exploitation (OS)
+# ==========================================
 .DS_Store
 Thumbs.db
+desktop.ini
