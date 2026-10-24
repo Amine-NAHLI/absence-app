@@ -1,7 +1,11 @@
 package com.example.demo.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "groupes")
@@ -27,4 +31,14 @@ public class Groupe {
 
     @Column(name = "annee_scolaire", length = 20)
     private String anneeScolaire;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "groupe_matieres",
+            joinColumns = @JoinColumn(name = "groupe_id"),
+            inverseJoinColumns = @JoinColumn(name = "matiere_id")
+    )
+    @JsonIgnoreProperties("groupes")
+    @Builder.Default
+    private Set<Matiere> matieres = new HashSet<>();
 }

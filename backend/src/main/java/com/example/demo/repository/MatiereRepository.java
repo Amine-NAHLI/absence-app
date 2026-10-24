@@ -8,4 +8,5 @@ import java.util.Optional;
 @Repository
 public interface MatiereRepository extends JpaRepository<Matiere, Long> {
     Optional<Matiere> findByCode(String code);
+    boolean existsByCode(String code);
 }
