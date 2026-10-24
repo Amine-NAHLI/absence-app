@@ -16,4 +16,5 @@ public interface EtudiantRepository extends JpaRepository<Etudiant, Long> {
     Optional<Etudiant> findByCne(String cne);
     List<Etudiant> findByGroupeOrderByUserNomAscUserPrenomAsc(Groupe groupe);
     List<Etudiant> findByGroupeIdOrderByUserNomAscUserPrenomAsc(Long groupeId);
+    List<Etudiant> findByGroupeId(Long groupeId);
 }

@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.SeanceCreateRequest;
+import com.example.demo.dto.SeanceResponseDTO;
 import com.example.demo.entity.*;
 import com.example.demo.repository.*;
 import jakarta.validation.Valid;
@@ -17,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/seances")
@@ -28,25 +30,44 @@ public class SeanceController {
     private final GroupeRepository groupeRepository;
     private final MatiereRepository matiereRepository;
     private final EnseignantRepository enseignantRepository;
+    private final AbsenceRepository absenceRepository;
+    private final EtudiantRepository etudiantRepository;
 
     @GetMapping("/enseignant/{enseignantId}")
-    public ResponseEntity<List<Seance>> getSeancesByEnseignant(@PathVariable Long enseignantId) {
-        return ResponseEntity.ok(seanceRepository.findByEnseignantId(enseignantId));
+    public ResponseEntity<List<SeanceResponseDTO>> getSeancesByEnseignant(@PathVariable Long enseignantId) {
+        List<Seance> seances = seanceRepository.findByEnseignantId(enseignantId);
+        return ResponseEntity.ok(seances.stream().map(this::mapToDTO).collect(Collectors.toList()));
     }
 
     @GetMapping("/enseignant/{enseignantId}/aujourdhui")
-    public ResponseEntity<List<Seance>> getSeancesAujourdhui(@PathVariable Long enseignantId) {
-        return ResponseEntity.ok(seanceRepository.findByEnseignantIdAndDateSeance(enseignantId, LocalDate.now()));
+    public ResponseEntity<List<SeanceResponseDTO>> getSeancesAujourdhui(@PathVariable Long enseignantId) {
+        List<Seance> seances = seanceRepository.findByEnseignantIdAndDateSeance(enseignantId, LocalDate.now());
+        return ResponseEntity.ok(seances.stream().map(this::mapToDTO).collect(Collectors.toList()));
+    }
+
+    @GetMapping("/aujourdhui")
+    public ResponseEntity<List<SeanceResponseDTO>> getAllSeancesAujourdhui() {
+        List<Seance> seances = seanceRepository.findByDateSeance(LocalDate.now());
+        return ResponseEntity.ok(seances.stream().map(this::mapToDTO).collect(Collectors.toList()));
     }
 
     @GetMapping("/groupe/{groupeId}")
-    public ResponseEntity<List<Seance>> getSeancesByGroupe(@PathVariable Long groupeId) {
-        return ResponseEntity.ok(seanceRepository.findByGroupeId(groupeId));
+    public ResponseEntity<List<SeanceResponseDTO>> getSeancesByGroupe(@PathVariable Long groupeId) {
+        List<Seance> seances = seanceRepository.findByGroupeId(groupeId);
+        return ResponseEntity.ok(seances.stream().map(this::mapToDTO).collect(Collectors.toList()));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getSeanceById(@PathVariable Long id) {
+        Optional<Seance> opt = seanceRepository.findById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Séance introuvable."));
+        }
+        return ResponseEntity.ok(mapToDTO(opt.get()));
     }
 
     /**
      * Démarrer ou réserver une séance en direct pour réaliser l'appel (US02 / US03).
-     * Si la séance existe déjà pour cette classe, matière et créneau aujourd'hui, elle est réutilisée.
      */
     @PostMapping("/demarrer")
     @Transactional
@@ -98,7 +119,7 @@ public class SeanceController {
                 seanceRepository.save(existing);
             }
             log.info("Séance existante réutilisée ID: {}", existing.getId());
-            return ResponseEntity.ok(existing);
+            return ResponseEntity.ok(mapToDTO(existing));
         }
 
         String salleNom = (req.getSalle() != null && !req.getSalle().isBlank()) ? req.getSalle().trim() : "SALLE-01";
@@ -119,6 +140,48 @@ public class SeanceController {
         Seance saved = seanceRepository.save(seance);
         log.info("Séance créée avec succès ID: {} pour {} en {}", saved.getId(), saved.getGroupe().getCode(), saved.getSalle());
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        return ResponseEntity.status(HttpStatus.CREATED).body(mapToDTO(saved));
+    }
+
+    @PutMapping("/{id}/cloturer")
+    @Transactional
+    public ResponseEntity<?> cloturerSeance(@PathVariable Long id) {
+        Optional<Seance> opt = seanceRepository.findById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Séance introuvable."));
+        }
+        Seance s = opt.get();
+        s.setStatut("TERMINEE");
+        seanceRepository.save(s);
+        return ResponseEntity.ok(mapToDTO(s));
+    }
+
+    private SeanceResponseDTO mapToDTO(Seance s) {
+        List<Absence> absences = absenceRepository.findBySeanceId(s.getId());
+        int effectif = s.getGroupe() != null ? etudiantRepository.findByGroupeId(s.getGroupe().getId()).size() : 0;
+        String profNom = (s.getEnseignant() != null && s.getEnseignant().getUser() != null)
+                ? s.getEnseignant().getUser().getPrenom() + " " + s.getEnseignant().getUser().getNom()
+                : "Enseignant";
+
+        return SeanceResponseDTO.builder()
+                .id(s.getId())
+                .dateSeance(s.getDateSeance())
+                .heureDebut(s.getHeureDebut())
+                .heureFin(s.getHeureFin())
+                .typeSeance(s.getTypeSeance())
+                .salle(s.getSalle())
+                .matiereId(s.getMatiere() != null ? s.getMatiere().getId() : null)
+                .matiereCode(s.getMatiere() != null ? s.getMatiere().getCode() : "")
+                .matiereNom(s.getMatiere() != null ? s.getMatiere().getNom() : "")
+                .groupeId(s.getGroupe() != null ? s.getGroupe().getId() : null)
+                .groupeCode(s.getGroupe() != null ? s.getGroupe().getCode() : "")
+                .groupeNom(s.getGroupe() != null ? s.getGroupe().getNom() : "")
+                .groupeEffectif(effectif)
+                .enseignantId(s.getEnseignant() != null ? s.getEnseignant().getId() : null)
+                .enseignantNom(profNom)
+                .statut(s.getStatut())
+                .appelFait(!absences.isEmpty())
+                .nbAbsents(absences.size())
+                .build();
     }
 }

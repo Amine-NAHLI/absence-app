@@ -104,6 +104,19 @@ public class AbsenceController {
     }
 
     /**
+     * Récupérer les identifiants des étudiants marqués absents pour une séance donnée.
+     */
+    @GetMapping("/seance/{seanceId}")
+    public ResponseEntity<List<Long>> getAbsentsBySeance(@PathVariable Long seanceId) {
+        List<Absence> absences = absenceRepository.findBySeanceId(seanceId);
+        List<Long> absentIds = absences.stream()
+                .filter(a -> a.getEtudiant() != null)
+                .map(a -> a.getEtudiant().getId())
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(absentIds);
+    }
+
+    /**
      * US04 : Consulter ses propres absences (Espace Étudiant).
      * Trié par date décroissante (de la plus récente à la plus ancienne).
      */

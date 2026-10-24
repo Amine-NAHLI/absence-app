@@ -13,15 +13,17 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { UserSession } from '../types/auth';
-import { Groupe, Matiere, Salle } from '../types/academic';
+import { Groupe, Matiere, Salle, SeanceAujourdhui } from '../types/academic';
 import { HeaderBar } from '../components/HeaderBar';
 import { theme } from '../theme/theme';
 import {
+  cloturerSeance,
   demarrerOuObtenirSeance,
   enregistrerAppel,
   EtudiantItem,
   getAbsentsForSeance,
   getEtudiantsByGroupe,
+  getSeancesAujourdhui,
 } from '../services/absenceService';
 import {
   arbitrerJustificatif,
@@ -56,13 +58,25 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
   // Données dynamiques académiques
   const [groupes, setGroupes] = useState<Groupe[]>([]);
   const [salles, setSalles] = useState<Salle[]>([]);
+
+  // Séances du jour de l'enseignant
+  const [seancesAujourdhui, setSeancesAujourdhui] = useState<SeanceAujourdhui[]>([]);
+  const [activeSeance, setActiveSeance] = useState<SeanceAujourdhui | null>(null);
+  const [activeSeanceId, setActiveSeanceId] = useState<number | null>(null);
+
+  // Configuration de la séance sélectionnée / à réserver
   const [selectedGroupe, setSelectedGroupe] = useState<Groupe | null>(null);
   const [selectedMatiere, setSelectedMatiere] = useState<Matiere | null>(null);
   const [selectedSalleCode, setSelectedSalleCode] = useState<string>('LABO-03');
   const [selectedCreneau, setSelectedCreneau] = useState<string>('08:30 — 10:15');
   const [selectedTypeSeance, setSelectedTypeSeance] = useState<string>('COURS');
-  const [showConfig, setShowConfig] = useState<boolean>(false);
-  const [activeSeanceId, setActiveSeanceId] = useState<number | null>(null);
+
+  // Modale de réservation de salle & nouvelle séance
+  const [showReserverModal, setShowReserverModal] = useState<boolean>(false);
+  const [reserving, setReserving] = useState<boolean>(false);
+
+  // Recherche locale d'étudiant
+  const [searchStudent, setSearchStudent] = useState<string>('');
 
   // État modale de rejet avec motif (US09)
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
@@ -87,32 +101,67 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
     }
   };
 
+  const loadSeances = async (): Promise<SeanceAujourdhui[]> => {
+    try {
+      const todayList = await getSeancesAujourdhui(session.enseignantId);
+      setSeancesAujourdhui(todayList);
+      return todayList;
+    } catch {
+      setSeancesAujourdhui([]);
+      return [];
+    }
+  };
+
+  const handleSelectSeance = async (seance: SeanceAujourdhui, grpsList = groupes) => {
+    setActiveSeance(seance);
+    setActiveSeanceId(seance.id);
+    setSelectedSalleCode(seance.salle);
+    setSelectedCreneau(
+      seance.heureDebut && seance.heureFin
+        ? `${seance.heureDebut.substring(0, 5)} — ${seance.heureFin.substring(0, 5)}`
+        : '08:30 — 10:15'
+    );
+    setSelectedTypeSeance(seance.typeSeance || 'COURS');
+
+    // Associer la classe et le module
+    const matchedGroupe = grpsList.find((g) => g.id === seance.groupeId);
+    if (matchedGroupe) {
+      setSelectedGroupe(matchedGroupe);
+      const matchedMatiere = matchedGroupe.matieres?.find((m) => m.id === seance.matiereId);
+      if (matchedMatiere) {
+        setSelectedMatiere(matchedMatiere);
+      }
+    }
+
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    await loadStudentsForGroupe(seance.groupeId, seance.id);
+  };
+
   const loadAllData = async () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      // 1. Charger les classes et salles créées par l'administrateur
-      const [fetchedGroupes, fetchedSalles] = await Promise.all([
+      const [fetchedGroupes, fetchedSalles, todaySeances] = await Promise.all([
         getGroupes(),
         getSalles(),
+        loadSeances(),
       ]);
       setGroupes(fetchedGroupes);
       setSalles(fetchedSalles);
 
-      let currentGroupe = selectedGroupe;
-      if (!currentGroupe && fetchedGroupes.length > 0) {
-        currentGroupe = fetchedGroupes[0];
-        setSelectedGroupe(currentGroupe);
-      }
-
-      if (currentGroupe) {
-        if (!selectedMatiere && currentGroupe.matieres && currentGroupe.matieres.length > 0) {
-          setSelectedMatiere(currentGroupe.matieres[0]);
+      if (todaySeances.length > 0) {
+        await handleSelectSeance(todaySeances[0], fetchedGroupes);
+      } else if (fetchedGroupes.length > 0) {
+        const defaultGrp = fetchedGroupes[0];
+        setSelectedGroupe(defaultGrp);
+        if (defaultGrp.matieres && defaultGrp.matieres.length > 0) {
+          setSelectedMatiere(defaultGrp.matieres[0]);
         }
-        if (fetchedSalles.length > 0 && !selectedSalleCode) {
+        if (fetchedSalles.length > 0) {
           setSelectedSalleCode(fetchedSalles[0].code);
         }
-        await loadStudentsForGroupe(currentGroupe.id, activeSeanceId || undefined);
+        await loadStudentsForGroupe(defaultGrp.id);
       } else {
         setEtudiants([]);
       }
@@ -121,7 +170,6 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
     }
 
     try {
-      // 2. Charger les justificatifs en attente d'arbitrage (US09)
       const pendingJustifs = await getJustificatifsEnAttente();
       setJustificatifs(pendingJustifs);
     } catch {
@@ -135,13 +183,56 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
     loadAllData();
   }, []);
 
-  const handleSelectGroupe = async (grp: Groupe) => {
+  const handleSelectGroupeInModal = (grp: Groupe) => {
     setSelectedGroupe(grp);
     const firstMatiere = grp.matieres && grp.matieres.length > 0 ? grp.matieres[0] : null;
     setSelectedMatiere(firstMatiere);
-    setSuccessMessage(null);
-    setErrorMessage(null);
-    await loadStudentsForGroupe(grp.id);
+  };
+
+  /**
+   * Confirmer la réservation d'une salle et création de séance (Aujourd'hui)
+   */
+  const handleConfirmReservation = async () => {
+    if (!selectedGroupe) {
+      Alert.alert('Attention', 'Veuillez sélectionner une classe.');
+      return;
+    }
+    if (!selectedMatiere) {
+      Alert.alert('Attention', 'Veuillez sélectionner un module d\'enseignement.');
+      return;
+    }
+    if (!selectedSalleCode) {
+      Alert.alert('Attention', 'Veuillez sélectionner une salle.');
+      return;
+    }
+
+    setReserving(true);
+    const creneauObj = CRENEAUX.find((c) => c.label === selectedCreneau) || CRENEAUX[0];
+
+    try {
+      const newSeance = await demarrerOuObtenirSeance({
+        enseignantId: session.enseignantId || session.id,
+        groupeId: selectedGroupe.id,
+        matiereId: selectedMatiere.id,
+        salle: selectedSalleCode,
+        typeSeance: selectedTypeSeance,
+        heureDebut: creneauObj.debut,
+        heureFin: creneauObj.fin,
+      });
+
+      setShowReserverModal(false);
+      setSuccessMessage(
+        `Séance ${newSeance.typeSeance || 'COURS'} réservée avec succès en salle ${newSeance.salle || selectedSalleCode} !`
+      );
+
+      const updatedList = await loadSeances();
+      const matched = updatedList.find((s) => s.id === newSeance.id) || newSeance;
+      await handleSelectSeance(matched);
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible de réserver cette salle.');
+    } finally {
+      setReserving(false);
+    }
   };
 
   /**
@@ -152,6 +243,16 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
     setEtudiants((prev) =>
       prev.map((e) => (e.id === id ? { ...e, absent: !e.absent } : e))
     );
+  };
+
+  const handleMarkAllPresent = () => {
+    setSuccessMessage(null);
+    setEtudiants((prev) => prev.map((e) => ({ ...e, absent: false })));
+  };
+
+  const handleToggleAll = () => {
+    setSuccessMessage(null);
+    setEtudiants((prev) => prev.map((e) => ({ ...e, absent: !e.absent })));
   };
 
   /**
@@ -184,34 +285,65 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
       }));
 
     try {
-      // 1. Démarrer ou obtenir la séance dans la salle choisie
-      const seance = await demarrerOuObtenirSeance({
-        enseignantId: session.enseignantId || session.id,
-        groupeId: selectedGroupe.id,
-        matiereId: selectedMatiere.id,
-        salle: selectedSalleCode || 'LABO-03',
-        typeSeance: selectedTypeSeance,
-        heureDebut: creneauObj.debut,
-        heureFin: creneauObj.fin,
-      });
+      let seanceId = activeSeanceId;
+      if (!seanceId) {
+        const seance = await demarrerOuObtenirSeance({
+          enseignantId: session.enseignantId || session.id,
+          groupeId: selectedGroupe.id,
+          matiereId: selectedMatiere.id,
+          salle: selectedSalleCode || 'LABO-03',
+          typeSeance: selectedTypeSeance,
+          heureDebut: creneauObj.debut,
+          heureFin: creneauObj.fin,
+        });
+        seanceId = seance.id;
+        setActiveSeanceId(seance.id);
+      }
 
-      setActiveSeanceId(seance.id);
-
-      // 2. Enregistrer l'appel avec contrôle anti-doublon
       await enregistrerAppel(
-        seance.id,
+        seanceId!,
         session.enseignantId || session.id,
         absentsList
       );
 
       setSuccessMessage(
-        `Émargement validé avec succès pour ${selectedGroupe.code} en Salle ${selectedSalleCode} (${absentsList.length} absent(s)).`
+        `Émargement validé avec succès pour ${selectedGroupe.code} (${absentsList.length} absent(s)). Règle anti-doublon appliquée.`
       );
+
+      const refreshed = await loadSeances();
+      if (activeSeanceId) {
+        const found = refreshed.find((s) => s.id === activeSeanceId);
+        if (found) setActiveSeance(found);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Erreur lors de la validation de l\'émargement.');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCloturer = async () => {
+    if (!activeSeanceId) return;
+    Alert.alert(
+      'Clôturer la séance',
+      'Voulez-vous marquer cette séance comme terminée ? L\'appel restera conservé pour consultation.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Clôturer la séance',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await cloturerSeance(activeSeanceId);
+              setSuccessMessage('Séance clôturée avec succès.');
+              await loadSeances();
+            } catch (err: any) {
+              Alert.alert('Erreur', err.message || 'Impossible de clôturer la séance.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   /**
@@ -233,7 +365,7 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
   };
 
   /**
-   * US09 : Ouvrir la boîte de dialogue de rejet avec motif.
+   * US09 : Boîte de dialogue rejet.
    */
   const openRejectModal = (justifId: number) => {
     setSelectedJustifId(justifId);
@@ -241,9 +373,6 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
     setRejectModalVisible(true);
   };
 
-  /**
-   * US09 : Confirmer le rejet avec motif.
-   */
   const handleConfirmReject = async () => {
     if (!selectedJustifId) return;
 
@@ -264,16 +393,33 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
     }
   };
 
+  const filteredEtudiants = etudiants.filter((e) => {
+    if (!searchStudent) return true;
+    const q = searchStudent.toLowerCase().trim();
+    return (
+      e.nom.toLowerCase().includes(q) ||
+      e.prenom.toLowerCase().includes(q) ||
+      (e.matricule && e.matricule.toLowerCase().includes(q))
+    );
+  });
+
   const totalAbsents = etudiants.filter((e) => e.absent).length;
   const totalPresents = etudiants.length - totalAbsents;
 
   const teacherName = `Prof. ${session.prenom || ''} ${session.nom || 'EL HASSANI'}`.trim();
   const initial = session.prenom?.[0] || session.nom?.[0] || 'P';
 
+  const todayFormatted = new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <HeaderBar
-        title="Feuille d'Émargement"
+        title="Espace Enseignant"
         subtitle={selectedGroupe ? `${selectedGroupe.code} • ${selectedSalleCode || 'Salle'}` : "Séance Active"}
         userInitial={initial}
         onLogout={onLogout}
@@ -284,11 +430,11 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         
-        {/* Titre de section enseignant */}
+        {/* Titre de section enseignant & Date du Jour */}
         <View style={styles.sectionHeading}>
           <Text style={styles.teacherTitle}>{teacherName}</Text>
           <Text style={styles.teacherDept}>
-            Département {session.departement || 'Génie Informatique'} • Émargement en Direct
+            Département {session.departement || 'Génie Informatique'} • {todayFormatted}
           </Text>
         </View>
 
@@ -302,159 +448,127 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
           </View>
         )}
 
-        {/* 1. Carte de Séance & Réservation de Salle Dynamique */}
-        {groupes.length > 0 && (
-          <View style={styles.sessionCard}>
-            <View style={styles.sessionCardTop}>
-              <View style={styles.moduleTag}>
-                <Text style={styles.moduleTagText}>{selectedMatiere?.code || 'MODULE'}</Text>
+        {/* =========================================================================
+            1. SECTION SÉANCES DU JOUR (Affichage de la liste + Réservation de salle)
+           ========================================================================= */}
+        <View style={styles.todaySectionCard}>
+          <View style={styles.todayHeaderRow}>
+            <View style={styles.todayTitleGroup}>
+              <View style={styles.todayIconCircle}>
+                <Feather name="calendar" size={15} color="#2563EB" />
               </View>
-              <Text style={styles.sessionCourseName} numberOfLines={1}>
-                {selectedMatiere?.nom || 'Sélectionnez un module'}
-              </Text>
+              <View>
+                <Text style={styles.todaySectionTitle}>SÉANCES D'AUJOURD'HUI</Text>
+                <Text style={styles.todaySubText}>
+                  {seancesAujourdhui.length} séance(s) programmée(s)
+                </Text>
+              </View>
+            </View>
 
+            {/* Bouton Réserver une Salle / Nouvelle Séance */}
+            <TouchableOpacity
+              style={styles.reserverBtn}
+              onPress={() => setShowReserverModal(true)}
+              activeOpacity={0.8}
+            >
+              <Feather name="plus-circle" size={13} color="#FFFFFF" />
+              <Text style={styles.reserverBtnText}>Réserver une Salle</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Liste des séances d'aujourd'hui */}
+          {seancesAujourdhui.length === 0 ? (
+            <View style={styles.emptyTodayBox}>
+              <Feather name="clock" size={24} color="#94A3B8" />
+              <Text style={styles.emptyTodayTitle}>Aucune séance enregistrée pour aujourd'hui</Text>
+              <Text style={styles.emptyTodaySub}>
+                Cliquez sur le bouton ci-dessous pour réserver une salle et démarrer un cours ou un TD.
+              </Text>
               <TouchableOpacity
-                style={styles.configToggleBtn}
-                onPress={() => setShowConfig(!showConfig)}
+                style={styles.emptyReserverAction}
+                onPress={() => setShowReserverModal(true)}
                 activeOpacity={0.8}
               >
-                <Feather name={showConfig ? 'chevron-up' : 'sliders'} size={12} color="#1D4ED8" />
-                <Text style={styles.configToggleText}>{showConfig ? 'Fermer' : 'Séance & Salle'}</Text>
+                <Feather name="plus" size={14} color="#2563EB" />
+                <Text style={styles.emptyReserverActionText}>Créer & Réserver une séance</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Métadonnées de salle & horaire sélectionnées */}
-            <View style={styles.metadataGrid}>
-              <View style={styles.metadataPill}>
-                <Feather name="layers" size={11} color={theme.colors.textMuted} />
-                <Text style={styles.metadataPillText}>{selectedGroupe?.code || 'Classe'}</Text>
-              </View>
-              <View style={styles.metadataPill}>
-                <Feather name="map-pin" size={11} color={theme.colors.textMuted} />
-                <Text style={styles.metadataPillText}>{selectedSalleCode || 'Salle'}</Text>
-              </View>
-              <View style={styles.metadataPill}>
-                <Feather name="clock" size={11} color={theme.colors.textMuted} />
-                <Text style={styles.metadataPillText}>{selectedCreneau}</Text>
-              </View>
-              <View style={styles.metadataPill}>
-                <Text style={[styles.metadataPillText, { fontWeight: '800' }]}>{selectedTypeSeance}</Text>
-              </View>
-            </View>
-
-            {/* Panneau de configuration dépliable de la séance & salle */}
-            {showConfig && (
-              <View style={styles.sessionConfigBox}>
-                {/* 1. Choisir la classe */}
-                <Text style={styles.configLabel}>1. CHOISIR LA CLASSE / PROMOTION</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-                  {groupes.map((grp) => {
-                    const active = selectedGroupe?.id === grp.id;
-                    return (
-                      <TouchableOpacity
-                        key={grp.id}
-                        style={[styles.choiceChip, active && styles.choiceChipActive]}
-                        onPress={() => handleSelectGroupe(grp)}
-                      >
-                        <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
-                          {grp.code}
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seancesScrollRow}>
+              {seancesAujourdhui.map((s) => {
+                const isSelected = activeSeanceId === s.id;
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[
+                      styles.seanceCardItem,
+                      isSelected && styles.seanceCardItemActive,
+                    ]}
+                    onPress={() => handleSelectSeance(s)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.seanceCardTop}>
+                      <View style={styles.seanceTimeBadge}>
+                        <Feather name="clock" size={11} color="#1E293B" />
+                        <Text style={styles.seanceTimeText}>
+                          {s.heureDebut?.substring(0, 5)} — {s.heureFin?.substring(0, 5)}
                         </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                      </View>
 
-                {/* 2. Choisir le module */}
-                <Text style={styles.configLabel}>2. CHOISIR LE MODULE</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-                  {selectedGroupe?.matieres && selectedGroupe.matieres.length > 0 ? (
-                    selectedGroupe.matieres.map((mat) => {
-                      const active = selectedMatiere?.id === mat.id;
-                      return (
-                        <TouchableOpacity
-                          key={mat.id}
-                          style={[styles.choiceChip, active && styles.choiceChipActive]}
-                          onPress={() => setSelectedMatiere(mat)}
-                        >
-                          <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
-                            {mat.code} • {mat.nom}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })
-                  ) : (
-                    <Text style={styles.configEmptySub}>Aucun module rattaché à cette classe.</Text>
-                  )}
-                </ScrollView>
-
-                {/* 3. Choisir la salle réservée */}
-                <Text style={styles.configLabel}>3. RÉSERVER LA SALLE</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-                  {salles.length > 0 ? (
-                    salles.map((sal) => {
-                      const active = selectedSalleCode === sal.code;
-                      return (
-                        <TouchableOpacity
-                          key={sal.id}
-                          style={[styles.choiceChip, active && styles.choiceChipActive]}
-                          onPress={() => setSelectedSalleCode(sal.code)}
-                        >
-                          <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
-                            {sal.code} ({sal.type})
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })
-                  ) : (
-                    <Text style={styles.configEmptySub}>Aucune salle configurée par l'admin.</Text>
-                  )}
-                </ScrollView>
-
-                {/* 4. Choisir le créneau */}
-                <Text style={styles.configLabel}>4. CRÉNEAU HORAIRE & TYPE</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-                  {CRENEAUX.map((c) => {
-                    const active = selectedCreneau === c.label;
-                    return (
-                      <TouchableOpacity
-                        key={c.label}
-                        style={[styles.choiceChip, active && styles.choiceChipActive]}
-                        onPress={() => setSelectedCreneau(c.label)}
+                      {/* Statut de l'appel */}
+                      <View
+                        style={[
+                          styles.seanceAppelBadge,
+                          s.appelFait
+                            ? { backgroundColor: '#DCFCE7' }
+                            : { backgroundColor: '#FEF3C7' },
+                        ]}
                       >
-                        <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
-                          {c.label}
+                        <Text
+                          style={[
+                            styles.seanceAppelBadgeText,
+                            s.appelFait ? { color: '#166534' } : { color: '#92400E' },
+                          ]}
+                        >
+                          {s.appelFait ? `Appel fait (${s.nbAbsents} abs.)` : 'À émarger'}
                         </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                      </View>
+                    </View>
 
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
-                  {['COURS', 'TD', 'TP'].map((t) => {
-                    const active = selectedTypeSeance === t;
-                    return (
-                      <TouchableOpacity
-                        key={t}
-                        style={[styles.choiceChip, active && styles.choiceChipActive, { flex: 1, alignItems: 'center' }]}
-                        onPress={() => setSelectedTypeSeance(t)}
-                      >
-                        <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>{t}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
+                    <Text style={styles.seanceMatiereName} numberOfLines={1}>
+                      {s.matiereCode} • {s.matiereNom}
+                    </Text>
 
-            {/* Règle anti-doublon */}
-            <View style={styles.ruleNotice}>
-              <Feather name="shield" size={13} color={theme.colors.infoBoxText} />
-              <Text style={styles.ruleNoticeText}>
-                {selectedGroupe ? `Classe ${selectedGroupe.code}` : 'Promotion'} • Contrôle anti-doublon d'émargement actif.
-              </Text>
-            </View>
-          </View>
-        )}
+                    <View style={styles.seanceMetaRow}>
+                      <View style={styles.seanceMetaPill}>
+                        <Feather name="map-pin" size={10} color="#64748B" />
+                        <Text style={styles.seanceMetaPillText}>{s.salle || 'Salle'}</Text>
+                      </View>
+
+                      <View style={styles.seanceMetaPill}>
+                        <Feather name="layers" size={10} color="#64748B" />
+                        <Text style={styles.seanceMetaPillText}>{s.groupeCode || 'Classe'}</Text>
+                      </View>
+
+                      <View style={styles.seanceMetaPill}>
+                        <Text style={[styles.seanceMetaPillText, { fontWeight: '800' }]}>
+                          {s.typeSeance || 'COURS'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {isSelected && (
+                      <View style={styles.seanceActiveRibbon}>
+                        <Feather name="check" size={12} color="#FFFFFF" />
+                        <Text style={styles.seanceActiveRibbonText}>Séance active</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
 
         {/* Messages Feedback */}
         {successMessage && (
@@ -471,74 +585,25 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
           </View>
         )}
 
-        {/* 2. Section Arbitrage des Justificatifs Médicaux (US09) */}
-        {justificatifs.length > 0 && (
-          <View style={styles.justifSectionCard}>
-            <View style={styles.justifHeaderRow}>
-              <View style={styles.justifTitleGroup}>
-                <Feather name="file-text" size={15} color="#D97706" />
-                <Text style={styles.justifSectionTitle}>
-                  JUSTIFICATIFS EN ATTENTE D'ARBITRAGE ({justificatifs.length})
-                </Text>
-              </View>
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>US09</Text>
-              </View>
-            </View>
-
-            {justificatifs.map((justif) => {
-              const isArbitrating = arbitratingId === justif.id;
-
-              return (
-                <View key={justif.id} style={styles.justifItemCard}>
-                  <View style={styles.justifStudentRow}>
-                    <Text style={styles.justifStudentName}>{justif.etudiantNom}</Text>
-                    <View style={styles.classeTag}>
-                      <Text style={styles.classeTagText}>{justif.groupeCode}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.justifFileInfo} numberOfLines={1}>
-                    Fichier : {justif.nomFichier}
-                  </Text>
-                  <Text style={styles.justifDateInfo}>
-                    Séance : {justif.matiereCode} • Déposé le {justif.dateDepot}
-                  </Text>
-
-                  {/* Actions de décision US09 */}
-                  <View style={styles.arbitrageActionsRow}>
-                    <TouchableOpacity
-                      style={[styles.acceptButton, isArbitrating && styles.buttonDisabled]}
-                      onPress={() => handleAcceptJustificatif(justif.id)}
-                      disabled={isArbitrating}
-                      activeOpacity={0.8}
-                    >
-                      <Feather name="check" size={13} color="#065F46" />
-                      <Text style={styles.acceptButtonText}>Valider le certificat</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.rejectButton, isArbitrating && styles.buttonDisabled]}
-                      onPress={() => openRejectModal(justif.id)}
-                      disabled={isArbitrating}
-                      activeOpacity={0.8}
-                    >
-                      <Feather name="x" size={13} color="#991B1B" />
-                      <Text style={styles.rejectButtonText}>Refuser</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {/* 3. Liste d'Émargement des Étudiants (US02, US03, US08) */}
+        {/* =========================================================================
+            2. SECTION FEUILLE D'ÉMARGEMENT EN DIRECT (De la séance sélectionnée)
+           ========================================================================= */}
         <View style={styles.rosterCard}>
           <View style={styles.rosterHeader}>
             <View style={styles.rosterTitleGroup}>
-              <Text style={styles.rosterTitle}>CLASSE GI4-A</Text>
-              <Text style={styles.rosterCount}>{etudiants.length} étudiants inscrits</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.rosterTitle}>
+                  {selectedGroupe?.code || 'CLASSE'} • {selectedMatiere?.code || 'MODULE'}
+                </Text>
+                {activeSeance?.statut && (
+                  <View style={styles.statutSeancePill}>
+                    <Text style={styles.statutSeancePillText}>{activeSeance.statut}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.rosterCount}>
+                Salle {selectedSalleCode} • {selectedCreneau} • {etudiants.length} étudiants
+              </Text>
             </View>
 
             {/* Badges Compteurs Présents / Absents */}
@@ -554,11 +619,54 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
             </View>
           </View>
 
+          {/* Règle anti-doublon et aide */}
+          <View style={styles.ruleNotice}>
+            <Feather name="shield" size={13} color={theme.colors.infoBoxText} />
+            <Text style={styles.ruleNoticeText}>
+              Contrôle anti-doublon actif : vous pouvez corriger l'appel sans risquer de créer des doublons.
+            </Text>
+          </View>
+
+          {/* Outils d'appel rapide & Recherche */}
+          <View style={styles.rosterToolsRow}>
+            <View style={styles.searchStudentBox}>
+              <Feather name="search" size={13} color="#94A3B8" />
+              <TextInput
+                style={styles.searchStudentInput}
+                placeholder="Rechercher par nom, prénom ou matricule..."
+                value={searchStudent}
+                onChangeText={setSearchStudent}
+                placeholderTextColor="#94A3B8"
+              />
+              {searchStudent.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchStudent('')}>
+                  <Feather name="x" size={13} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.quickBulkRow}>
+              <TouchableOpacity style={styles.quickBulkBtn} onPress={handleMarkAllPresent}>
+                <Text style={styles.quickBulkBtnText}>Tous présents</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.quickBulkBtn} onPress={handleToggleAll}>
+                <Text style={styles.quickBulkBtnText}>Inverser</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Liste des étudiants */}
           {loading ? (
             <ActivityIndicator style={{ padding: 32 }} color={theme.colors.primaryDark} size="small" />
+          ) : filteredEtudiants.length === 0 ? (
+            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+              <Text style={{ fontSize: 12, color: theme.colors.textMuted }}>
+                {searchStudent ? 'Aucun étudiant ne correspond à cette recherche.' : 'Aucun étudiant dans cette classe.'}
+              </Text>
+            </View>
           ) : (
-            etudiants.map((etudiant, index) => {
-              const isLast = index === etudiants.length - 1;
+            filteredEtudiants.map((etudiant, index) => {
+              const isLast = index === filteredEtudiants.length - 1;
               const studentInitial = etudiant.prenom?.[0] || etudiant.nom?.[0] || 'E';
 
               return (
@@ -592,12 +700,12 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
                         {etudiant.nom} {etudiant.prenom}
                       </Text>
                       <Text style={styles.studentSubInfo}>
-                        {etudiant.matricule} • CNE {etudiant.cne}
+                        {etudiant.matricule || 'N/A'} • CNE {etudiant.cne || 'N/A'}
                       </Text>
                     </View>
                   </View>
 
-                  {/* Toggle Présence Apple FinTech (Segmented Pill - US08) */}
+                  {/* Bouton de Présence / Absence */}
                   <TouchableOpacity
                     style={[
                       styles.presenceTogglePill,
@@ -628,7 +736,7 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
           )}
         </View>
 
-        {/* 4. Actions d'Enregistrement de l'Appel (US03) */}
+        {/* 3. Actions d'Enregistrement de l'Appel (US03) */}
         <View style={styles.actionButtonGroup}>
           <TouchableOpacity
             style={[styles.primarySubmitButton, saving && styles.buttonDisabled]}
@@ -642,29 +750,257 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
               <View style={styles.buttonInnerRow}>
                 <Feather name="check-circle" size={16} color="#FFFFFF" />
                 <Text style={styles.primarySubmitButtonText}>
-                  Valider et enregistrer l'émargement
+                  Valider et enregistrer l'émargement ({totalAbsents} absents)
                 </Text>
               </View>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryRefreshButton}
-            onPress={loadAllData}
-            activeOpacity={0.75}
-          >
-            <View style={styles.buttonInnerRow}>
-              <Feather name="refresh-cw" size={14} color={theme.colors.textSecondary} />
-              <Text style={styles.secondaryRefreshButtonText}>
-                Actualiser la liste des étudiants
-              </Text>
-            </View>
-          </TouchableOpacity>
+          {activeSeance && activeSeance.statut !== 'TERMINEE' && (
+            <TouchableOpacity
+              style={styles.cloturerButton}
+              onPress={handleCloturer}
+              activeOpacity={0.8}
+            >
+              <Feather name="lock" size={14} color="#475569" />
+              <Text style={styles.cloturerButtonText}>Clôturer cette séance</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* =========================================================================
+            4. SECTION ARBITRAGE DES JUSTIFICATIFS MÉDICAUX (US09)
+           ========================================================================= */}
+        {justificatifs.length > 0 && (
+          <View style={styles.justifSectionCard}>
+            <View style={styles.justifHeaderRow}>
+              <View style={styles.justifTitleGroup}>
+                <Feather name="file-text" size={15} color="#D97706" />
+                <Text style={styles.justifSectionTitle}>
+                  JUSTIFICATIFS EN ATTENTE D'ARBITRAGE ({justificatifs.length})
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.justifSubTitle}>
+              Validez les certificats médicaux ou formulez un motif explicatif en cas de rejet (US09).
+            </Text>
+
+            {justificatifs.map((justif) => {
+              const isArbitrating = arbitratingId === justif.id;
+
+              return (
+                <View key={justif.id} style={styles.justifCardItem}>
+                  <View style={styles.justifTopRow}>
+                    <View style={styles.justifEtudiantTag}>
+                      <Text style={styles.justifEtudiantName}>
+                        {justif.etudiantNom}
+                      </Text>
+                      <Text style={styles.justifMatriculeText}>{justif.etudiantMatricule || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.justifHourTag}>
+                      <Feather name="layers" size={10} color="#64748B" />
+                      <Text style={styles.justifHourText}>{justif.groupeCode || 'Classe'}</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.justifMotifText}>
+                    <Text style={{ fontWeight: '700' }}>Module : </Text>
+                    {justif.matiereCode} • {justif.matiereNom}
+                  </Text>
+
+                  <Text style={styles.justifFileInfo} numberOfLines={1}>
+                    Fichier : {justif.nomFichier}
+                  </Text>
+                  <Text style={styles.justifDateInfo}>
+                    Séance : {justif.matiereCode} • Déposé le {justif.dateDepot}
+                  </Text>
+
+                  <View style={styles.arbitrageActionsRow}>
+                    <TouchableOpacity
+                      style={[styles.acceptButton, isArbitrating && styles.buttonDisabled]}
+                      onPress={() => handleAcceptJustificatif(justif.id)}
+                      disabled={isArbitrating}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="check" size={13} color="#065F46" />
+                      <Text style={styles.acceptButtonText}>Valider le certificat</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.rejectButton, isArbitrating && styles.buttonDisabled]}
+                      onPress={() => openRejectModal(justif.id)}
+                      disabled={isArbitrating}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="x" size={13} color="#991B1B" />
+                      <Text style={styles.rejectButtonText}>Refuser</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
 
       </ScrollView>
 
-      {/* Modale de Saisie de Motif de Rejet (US09) */}
+      {/* =========================================================================
+          MODALE 1 : RÉSERVER UNE SALLE & NOUVELLE SÉANCE (Aujourd'hui)
+         ========================================================================= */}
+      <Modal
+        visible={showReserverModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowReserverModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCardWide}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.reserverModalIcon}>
+                  <Feather name="calendar" size={16} color="#1D4ED8" />
+                </View>
+                <View>
+                  <Text style={styles.modalTitle}>Réserver une Salle & Séance</Text>
+                  <Text style={styles.modalSubSmall}>Programmer un cours ou un TD pour aujourd'hui</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowReserverModal(false)}>
+                <Feather name="x" size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              {/* 1. Classe */}
+              <Text style={styles.formSectionLabel}>1. SÉLECTIONNER LA CLASSE</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                {groupes.map((grp) => {
+                  const active = selectedGroupe?.id === grp.id;
+                  return (
+                    <TouchableOpacity
+                      key={grp.id}
+                      style={[styles.choiceChip, active && styles.choiceChipActive]}
+                      onPress={() => handleSelectGroupeInModal(grp)}
+                    >
+                      <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                        {grp.code}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* 2. Module */}
+              <Text style={styles.formSectionLabel}>2. SÉLECTIONNER LE MODULE</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                {selectedGroupe?.matieres && selectedGroupe.matieres.length > 0 ? (
+                  selectedGroupe.matieres.map((mat) => {
+                    const active = selectedMatiere?.id === mat.id;
+                    return (
+                      <TouchableOpacity
+                        key={mat.id}
+                        style={[styles.choiceChip, active && styles.choiceChipActive]}
+                        onPress={() => setSelectedMatiere(mat)}
+                      >
+                        <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                          {mat.code} • {mat.nom}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.configEmptySub}>Aucun module rattaché à cette classe.</Text>
+                )}
+              </ScrollView>
+
+              {/* 3. Salle */}
+              <Text style={styles.formSectionLabel}>3. RÉSERVER LA SALLE</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                {salles.length > 0 ? (
+                  salles.map((sal) => {
+                    const active = selectedSalleCode === sal.code;
+                    return (
+                      <TouchableOpacity
+                        key={sal.id}
+                        style={[styles.choiceChip, active && styles.choiceChipActive]}
+                        onPress={() => setSelectedSalleCode(sal.code)}
+                      >
+                        <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                          {sal.code} ({sal.type})
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.configEmptySub}>Aucune salle configurée par l'admin.</Text>
+                )}
+              </ScrollView>
+
+              {/* 4. Horaire */}
+              <Text style={styles.formSectionLabel}>4. CRÉNEAU HORAIRE</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                {CRENEAUX.map((c) => {
+                  const active = selectedCreneau === c.label;
+                  return (
+                    <TouchableOpacity
+                      key={c.label}
+                      style={[styles.choiceChip, active && styles.choiceChipActive]}
+                      onPress={() => setSelectedCreneau(c.label)}
+                    >
+                      <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>
+                        {c.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* 5. Type de cours */}
+              <Text style={styles.formSectionLabel}>5. TYPE D'ENSEIGNEMENT</Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                {['COURS', 'TD', 'TP'].map((t) => {
+                  const active = selectedTypeSeance === t;
+                  return (
+                    <TouchableOpacity
+                      key={t}
+                      style={[styles.choiceChip, active && styles.choiceChipActive, { flex: 1, alignItems: 'center' }]}
+                      onPress={() => setSelectedTypeSeance(t)}
+                    >
+                      <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>{t}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowReserverModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalConfirmBookingButton, reserving && styles.buttonDisabled]}
+                onPress={handleConfirmReservation}
+                disabled={reserving}
+              >
+                {reserving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalConfirmBookingText}>Confirmer la Réservation</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* =========================================================================
+          MODALE 2 : SAISIE DE MOTIF DE REJET (US09)
+         ========================================================================= */}
       <Modal
         visible={rejectModalVisible}
         transparent={true}
@@ -720,8 +1056,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     paddingBottom: 40,
   },
   sectionHeading: {
@@ -739,88 +1075,222 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
-  sessionCard: {
+  emptyGroupesAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: theme.radius.sm,
+    padding: 12,
+    marginBottom: 16,
+  },
+  emptyGroupesAlertText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+
+  // Section Séances du Jour
+  todaySectionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.lg,
-    padding: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
     marginBottom: 16,
     ...theme.shadows.card,
   },
-  sessionCardTop: {
+  todayHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  todayTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 10,
   },
-  moduleTag: {
-    backgroundColor: theme.colors.primaryDark,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: theme.radius.xs,
+  todayIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  moduleTagText: {
+  todaySectionTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.3,
+  },
+  todaySubText: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    color: theme.colors.textMuted,
+    marginTop: 1,
   },
-  sessionCourseName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '800',
-    color: theme.colors.textMain,
-  },
-  metadataGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 10,
-  },
-  metadataPill: {
+  reserverBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
     borderRadius: theme.radius.xs,
+  },
+  reserverBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  emptyTodayBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  metadataPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: theme.colors.textSecondary,
+  emptyTodayTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginTop: 4,
   },
-  ruleNotice: {
+  emptyTodaySub: {
+    fontSize: 11.5,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  emptyReserverAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: theme.colors.infoBoxBg,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: 5,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: theme.radius.xs,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: theme.colors.infoBoxBorder,
+    borderColor: '#BFDBFE',
   },
-  ruleNoticeText: {
-    flex: 1,
-    fontSize: 11,
-    color: theme.colors.infoBoxText,
-    fontWeight: '500',
+  emptyReserverActionText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#1D4ED8',
   },
+  seancesScrollRow: {
+    gap: 10,
+    paddingVertical: 2,
+  },
+  seanceCardItem: {
+    width: 240,
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    gap: 7,
+  },
+  seanceCardItemActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+    ...theme.shadows.subtle,
+  },
+  seanceCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  seanceTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  seanceTimeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  seanceAppelBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  seanceAppelBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  seanceMatiereName: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  seanceMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  seanceMetaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  seanceMetaPillText: {
+    fontSize: 10.5,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  seanceActiveRibbon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#2563EB',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  seanceActiveRibbonText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Feedback Banners
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     backgroundColor: '#ECFDF5',
     borderWidth: 1,
     borderColor: '#A7F3D0',
     borderRadius: theme.radius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    padding: 10,
     marginBottom: 14,
-    gap: 8,
   },
   successBannerText: {
     flex: 1,
@@ -831,137 +1301,22 @@ const styles = StyleSheet.create({
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.absentBg,
-    borderWidth: 1,
-    borderColor: theme.colors.absentBorder,
-    borderRadius: theme.radius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 14,
     gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: theme.radius.sm,
+    padding: 10,
+    marginBottom: 14,
   },
   errorBannerText: {
     flex: 1,
     fontSize: 12,
-    color: theme.colors.absentText,
-    fontWeight: '600',
-  },
-  justifSectionCard: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: theme.radius.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    marginBottom: 16,
-    ...theme.shadows.card,
-  },
-  justifHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  justifTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  justifSectionTitle: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#92400E',
-    letterSpacing: 0.5,
-  },
-  pendingBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: theme.radius.xs,
-  },
-  pendingBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#B45309',
-  },
-  justifItemCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.md,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    marginBottom: 10,
-  },
-  justifStudentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  justifStudentName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: theme.colors.textMain,
-  },
-  classeTag: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: theme.radius.xs,
-  },
-  classeTagText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.textSecondary,
-  },
-  justifFileInfo: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.textSecondary,
-    marginBottom: 2,
-  },
-  justifDateInfo: {
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginBottom: 10,
-  },
-  arbitrageActionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  acceptButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    paddingVertical: 8,
-    borderRadius: theme.radius.xs,
-  },
-  acceptButtonText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#065F46',
-  },
-  rejectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: theme.radius.xs,
-  },
-  rejectButtonText: {
-    fontSize: 11.5,
-    fontWeight: '700',
     color: '#991B1B',
+    fontWeight: '600',
   },
+
+  // Feuille d'appel (Roster)
   rosterCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.lg,
@@ -974,23 +1329,37 @@ const styles = StyleSheet.create({
   rosterHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
   },
-  rosterTitleGroup: {},
+  rosterTitleGroup: {
+    flex: 1,
+    paddingRight: 8,
+  },
   rosterTitle: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '800',
     color: theme.colors.textMain,
-    letterSpacing: 0.6,
+    letterSpacing: -0.2,
+  },
+  statutSeancePill: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  statutSeancePillText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#1D4ED8',
   },
   rosterCount: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: theme.colors.textMuted,
-    marginTop: 1,
+    marginTop: 2,
+    fontWeight: '500',
   },
   counterGroup: {
     flexDirection: 'row',
@@ -999,45 +1368,101 @@ const styles = StyleSheet.create({
   counterPillPresent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#ECFDF5',
+    gap: 5,
+    backgroundColor: '#F0FDF4',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#BBF7D0',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: theme.radius.pill,
   },
   counterPillAbsent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FECACA',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: theme.radius.pill,
   },
   counterDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   counterTextPresent: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#065F46',
+    color: theme.colors.presentText,
   },
   counterTextAbsent: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#991B1B',
+    color: theme.colors.absentText,
+  },
+  ruleNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.infoBoxBg,
+    borderRadius: theme.radius.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 12,
+  },
+  ruleNoticeText: {
+    flex: 1,
+    fontSize: 11,
+    color: theme.colors.infoBoxText,
+    lineHeight: 15,
+  },
+  rosterToolsRow: {
+    gap: 8,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 10,
+  },
+  searchStudentBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.radius.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  searchStudentInput: {
+    flex: 1,
+    fontSize: 12,
+    color: '#0F172A',
+    padding: 0,
+  },
+  quickBulkRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 6,
+  },
+  quickBulkBtn: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 4,
+  },
+  quickBulkBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
   },
   studentItemRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 11,
+    alignItems: 'center',
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
@@ -1049,22 +1474,22 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   studentAvatarCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   studentAvatarText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
   },
   studentTexts: {
     flex: 1,
   },
   studentFullName: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: theme.colors.textMain,
   },
@@ -1077,34 +1502,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
   },
   togglePresentStyle: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
   },
   toggleAbsentStyle: {
     backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    borderColor: '#FCA5A5',
   },
   presenceToggleText: {
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
+
+  // Actions d'enregistrement
   actionButtonGroup: {
     gap: 10,
+    marginBottom: 20,
   },
   primarySubmitButton: {
     backgroundColor: theme.colors.primaryDark,
     borderRadius: theme.radius.sm,
-    paddingVertical: 14,
+    paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.shadows.subtle,
+  },
+  primarySubmitButtonText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  cloturerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.radius.sm,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  cloturerButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
   },
   buttonInnerRow: {
     flexDirection: 'row',
@@ -1112,53 +1562,192 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   buttonDisabled: {
-    opacity: 0.7,
+    opacity: 0.65,
   },
-  primarySubmitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  secondaryRefreshButton: {
+
+  // Section Justificatifs
+  justifSectionCard: {
     backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.lg,
+    padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.sm,
-    paddingVertical: 12,
+    marginBottom: 20,
+    ...theme.shadows.card,
+  },
+  justifHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  justifTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  justifSectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.4,
+  },
+  justifSubTitle: {
+    fontSize: 11.5,
+    color: theme.colors.textMuted,
+    marginBottom: 12,
+  },
+  justifCardItem: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    marginBottom: 10,
+  },
+  justifTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  justifEtudiantTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  justifEtudiantName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  justifMatriculeText: {
+    fontSize: 11,
+    color: '#78350F',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  justifHourTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  justifHourText: {
+    fontSize: 10.5,
+    color: '#92400E',
+    fontWeight: '600',
+  },
+  justifMotifText: {
+    fontSize: 12,
+    color: '#78350F',
+    marginBottom: 4,
+  },
+  justifFileInfo: {
+    fontSize: 11,
+    color: '#92400E',
+    fontStyle: 'italic',
+  },
+  justifDateInfo: {
+    fontSize: 10.5,
+    color: '#B45309',
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  arbitrageActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  acceptButton: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#D1FAE5',
+    borderWidth: 1,
+    borderColor: '#6EE7B7',
+    paddingVertical: 8,
+    borderRadius: theme.radius.xs,
   },
-  secondaryRefreshButtonText: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
+  acceptButtonText: {
+    fontSize: 11.5,
     fontWeight: '700',
+    color: '#065F46',
   },
+  rejectButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    paddingVertical: 8,
+    borderRadius: theme.radius.xs,
+  },
+  rejectButtonText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#991B1B',
+  },
+
+  // Modales
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.lg,
-    padding: 20,
+    padding: 18,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 380,
     ...theme.shadows.card,
+  },
+  modalCardWide: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.xl,
+    padding: 18,
+    width: '100%',
+    maxWidth: 440,
+    ...theme.shadows.card,
+  },
+  reserverModalIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 8,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  modalSubSmall: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginTop: 1,
   },
   modalSub: {
     fontSize: 12,
@@ -1166,80 +1755,17 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginBottom: 12,
   },
-  motifInput: {
-    borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.sm,
-    padding: 10,
-    fontSize: 13,
-    color: theme.colors.textMain,
-    backgroundColor: '#F8FAFC',
-    textAlignVertical: 'top',
-    marginBottom: 16,
-    minHeight: 70,
-  },
-  modalActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-  },
-  modalCancelButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: theme.radius.xs,
-    backgroundColor: '#F1F5F9',
-  },
-  modalCancelText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.colors.textSecondary,
-  },
-  modalConfirmRejectButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: theme.radius.xs,
-    backgroundColor: '#EF4444',
-  },
-  modalConfirmRejectText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  configToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: '#EFF6FF',
-    borderRadius: theme.radius.xs,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  configToggleText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1D4ED8',
-  },
-  sessionConfigBox: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#F8FAFC',
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 8,
-  },
-  configLabel: {
-    fontSize: 10,
+  formSectionLabel: {
+    fontSize: 10.5,
     fontWeight: '800',
     color: '#64748B',
     letterSpacing: 0.5,
-    marginTop: 4,
+    marginTop: 8,
+    marginBottom: 4,
   },
   chipsScroll: {
     gap: 6,
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   choiceChip: {
     paddingHorizontal: 10,
@@ -1263,27 +1789,63 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   configEmptySub: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontStyle: 'italic',
     color: theme.colors.textMuted,
     paddingVertical: 4,
   },
-  emptyGroupesAlert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FEF3C7',
+  motifInput: {
     borderWidth: 1,
-    borderColor: '#FCD34D',
+    borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.sm,
-    padding: 12,
+    padding: 10,
+    fontSize: 13,
+    color: theme.colors.textMain,
+    backgroundColor: '#F8FAFC',
+    textAlignVertical: 'top',
     marginBottom: 16,
+    minHeight: 70,
   },
-  emptyGroupesAlertText: {
-    flex: 1,
+  modalActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
+  },
+  modalCancelButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: theme.radius.xs,
+    backgroundColor: '#F1F5F9',
+  },
+  modalCancelText: {
     fontSize: 12,
-    color: '#92400E',
-    lineHeight: 16,
-    fontWeight: '500',
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+  },
+  modalConfirmRejectButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: theme.radius.xs,
+    backgroundColor: '#EF4444',
+  },
+  modalConfirmRejectText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modalConfirmBookingButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: theme.radius.xs,
+    backgroundColor: '#2563EB',
+  },
+  modalConfirmBookingText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

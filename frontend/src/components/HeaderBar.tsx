@@ -40,7 +40,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       <View style={styles.mainNavRow}>
         {/* Titre de l'espace */}
         <View style={styles.titleColumn}>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
             {title}
           </Text>
         </View>

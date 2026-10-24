@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   RefreshControl,
   SafeAreaView,
@@ -64,6 +65,89 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
   const [etudiants, setEtudiants] = useState<AdminEtudiant[]>([]);
   const [enseignants, setEnseignants] = useState<AdminEnseignant[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
+
+  // Modal de navigation centrale au milieu de l'écran
+  const [showNavModal, setShowNavModal] = useState(false);
+
+  // Configuration des onglets avec métadonnées enrichies
+  const navTabsConfig: {
+    key: AdminTab;
+    title: string;
+    subtitle: string;
+    icon: keyof typeof Feather.glyphMap;
+    count: number;
+    color: string;
+    bgColor: string;
+  }[] = [
+    {
+      key: 'DEMANDES',
+      title: "Inscriptions en attente",
+      subtitle: 'Arbitrage et validation des nouveaux comptes',
+      icon: 'clock',
+      count: demandes.length,
+      color: '#D97706',
+      bgColor: '#FEF3C7',
+    },
+    {
+      key: 'ETUDIANTS',
+      title: 'Gestion des Étudiants',
+      subtitle: 'Promotions, matricules, recherche et suppression',
+      icon: 'users',
+      count: etudiants.length,
+      color: '#2563EB',
+      bgColor: '#EFF6FF',
+    },
+    {
+      key: 'ENSEIGNANTS',
+      title: 'Corps Enseignant',
+      subtitle: 'Professeurs, départements et spécialités',
+      icon: 'briefcase',
+      count: enseignants.length,
+      color: '#059669',
+      bgColor: '#ECFDF5',
+    },
+    {
+      key: 'GROUPES',
+      title: 'Classes & Promotions',
+      subtitle: 'Filières, effectifs et modules rattachés',
+      icon: 'layers',
+      count: groupes.length,
+      color: '#7C3AED',
+      bgColor: '#F5F3FF',
+    },
+    {
+      key: 'MATIERES',
+      title: "Modules d'enseignement",
+      subtitle: 'Coefficients et volumes horaires totaux',
+      icon: 'book',
+      count: matieres.length,
+      color: '#0284C7',
+      bgColor: '#E0F2FE',
+    },
+    {
+      key: 'SALLES',
+      title: 'Salles de classe',
+      subtitle: 'Capacités réelles et types (Labo, TD)',
+      icon: 'home',
+      count: salles.length,
+      color: '#E11D48',
+      bgColor: '#FFE4E6',
+    },
+  ];
+
+  const currentTabConfig = navTabsConfig.find((t) => t.key === activeTab) || navTabsConfig[0];
+
+  const handleNextTab = () => {
+    const idx = navTabsConfig.findIndex((t) => t.key === activeTab);
+    const nextIdx = (idx + 1) % navTabsConfig.length;
+    setActiveTab(navTabsConfig[nextIdx].key);
+  };
+
+  const handlePrevTab = () => {
+    const idx = navTabsConfig.findIndex((t) => t.key === activeTab);
+    const prevIdx = (idx - 1 + navTabsConfig.length) % navTabsConfig.length;
+    setActiveTab(navTabsConfig[prevIdx].key);
+  };
 
   // Recherche
   const [searchEtudiant, setSearchEtudiant] = useState('');
@@ -417,7 +501,7 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
   return (
     <SafeAreaView style={styles.safeArea}>
       <HeaderBar
-        title="Espace Administration"
+        title="Administration"
         subtitle="Direction des Études"
         userInitial={initial}
         onLogout={onLogout}
@@ -448,103 +532,118 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
             </View>
           )}
 
-          {/* KPI Synthétiques en Grille */}
+          {/* KPI Synthétiques en Grille Interactive */}
           <View style={styles.kpiRow}>
-            <View style={styles.kpiSmallCard}>
-              <Text style={styles.kpiSmallLabel}>ÉTUDIANTS</Text>
-              <Text style={styles.kpiSmallValue}>{etudiants.length}</Text>
-            </View>
-            <View style={styles.kpiSmallCard}>
-              <Text style={styles.kpiSmallLabel}>PROFESSEURS</Text>
-              <Text style={styles.kpiSmallValue}>{enseignants.length}</Text>
-            </View>
-            <View style={styles.kpiSmallCard}>
-              <Text style={styles.kpiSmallLabel}>CLASSES</Text>
-              <Text style={styles.kpiSmallValue}>{groupes.length}</Text>
-            </View>
-            <View style={styles.kpiSmallCard}>
-              <Text style={styles.kpiSmallLabel}>MODULES</Text>
-              <Text style={styles.kpiSmallValue}>{matieres.length}</Text>
-            </View>
-            <View style={[styles.kpiSmallCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+            <TouchableOpacity
+              style={[styles.kpiSmallCard, activeTab === 'ETUDIANTS' && styles.kpiSmallCardActive]}
+              onPress={() => setActiveTab('ETUDIANTS')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.kpiSmallLabel, activeTab === 'ETUDIANTS' && styles.kpiSmallLabelActive]}>ÉTUDIANTS</Text>
+              <Text style={[styles.kpiSmallValue, activeTab === 'ETUDIANTS' && styles.kpiSmallValueActive]}>{etudiants.length}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.kpiSmallCard, activeTab === 'ENSEIGNANTS' && styles.kpiSmallCardActive]}
+              onPress={() => setActiveTab('ENSEIGNANTS')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.kpiSmallLabel, activeTab === 'ENSEIGNANTS' && styles.kpiSmallLabelActive]}>PROFESSEURS</Text>
+              <Text style={[styles.kpiSmallValue, activeTab === 'ENSEIGNANTS' && styles.kpiSmallValueActive]}>{enseignants.length}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.kpiSmallCard, activeTab === 'GROUPES' && styles.kpiSmallCardActive]}
+              onPress={() => setActiveTab('GROUPES')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.kpiSmallLabel, activeTab === 'GROUPES' && styles.kpiSmallLabelActive]}>CLASSES</Text>
+              <Text style={[styles.kpiSmallValue, activeTab === 'GROUPES' && styles.kpiSmallValueActive]}>{groupes.length}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.kpiSmallCard, activeTab === 'MATIERES' && styles.kpiSmallCardActive]}
+              onPress={() => setActiveTab('MATIERES')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.kpiSmallLabel, activeTab === 'MATIERES' && styles.kpiSmallLabelActive]}>MODULES</Text>
+              <Text style={[styles.kpiSmallValue, activeTab === 'MATIERES' && styles.kpiSmallValueActive]}>{matieres.length}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.kpiSmallCard,
+                { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' },
+                activeTab === 'DEMANDES' && styles.kpiSmallCardActive,
+              ]}
+              onPress={() => setActiveTab('DEMANDES')}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.kpiSmallLabel, { color: '#1D4ED8' }]}>EN ATTENTE</Text>
               <Text style={[styles.kpiSmallValue, { color: '#1D4ED8' }]}>{demandes.length}</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
-          {/* Barre d'Onglets d'Administration avec défilement horizontal fluide */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.adminTabBarScroll}
-            style={styles.adminTabBarWrapper}
-          >
-            <TouchableOpacity
-              style={[styles.adminTabBtn, activeTab === 'DEMANDES' && styles.adminTabBtnActive]}
-              onPress={() => setActiveTab('DEMANDES')}
-              activeOpacity={0.8}
-            >
-              <Feather name="clock" size={12} color={activeTab === 'DEMANDES' ? '#1E293B' : '#64748B'} />
-              <Text style={[styles.adminTabBtnText, activeTab === 'DEMANDES' && styles.adminTabBtnTextActive]}>
-                Inscriptions {demandes.length > 0 ? `(${demandes.length})` : ''}
-              </Text>
-            </TouchableOpacity>
+          {/* SÉLECTEUR DE SECTION RESPONSIVE AVEC MODAL AU MILIEU */}
+          <View style={styles.navBarCardContainer}>
+            <View style={styles.navBarCard}>
+              <TouchableOpacity
+                style={styles.navBarLeftContent}
+                onPress={() => setShowNavModal(true)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.navIconBox, { backgroundColor: currentTabConfig.bgColor }]}>
+                  <Feather name={currentTabConfig.icon} size={18} color={currentTabConfig.color} />
+                </View>
+                <View style={styles.navTextCol}>
+                  <View style={styles.navTitleRow}>
+                    <Text style={styles.navActiveTitle} numberOfLines={1}>
+                      {currentTabConfig.title}
+                    </Text>
+                    <View style={[styles.navCountBadge, { backgroundColor: currentTabConfig.bgColor }]}>
+                      <Text style={[styles.navCountBadgeText, { color: currentTabConfig.color }]}>
+                        {currentTabConfig.count}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.navActiveSubtitle} numberOfLines={1}>
+                    {currentTabConfig.subtitle}
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.adminTabBtn, activeTab === 'ETUDIANTS' && styles.adminTabBtnActive]}
-              onPress={() => setActiveTab('ETUDIANTS')}
-              activeOpacity={0.8}
-            >
-              <Feather name="users" size={12} color={activeTab === 'ETUDIANTS' ? '#1E293B' : '#64748B'} />
-              <Text style={[styles.adminTabBtnText, activeTab === 'ETUDIANTS' && styles.adminTabBtnTextActive]}>
-                Étudiants ({etudiants.length})
-              </Text>
-            </TouchableOpacity>
+              {/* Contrôles droits : Navigation Précédente / Suivante & Bouton Menu */}
+              <View style={styles.navControlsRow}>
+                <TouchableOpacity
+                  style={styles.navArrowBtn}
+                  onPress={handlePrevTab}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Section précédente"
+                >
+                  <Feather name="chevron-left" size={16} color="#475569" />
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.adminTabBtn, activeTab === 'ENSEIGNANTS' && styles.adminTabBtnActive]}
-              onPress={() => setActiveTab('ENSEIGNANTS')}
-              activeOpacity={0.8}
-            >
-              <Feather name="briefcase" size={12} color={activeTab === 'ENSEIGNANTS' ? '#1E293B' : '#64748B'} />
-              <Text style={[styles.adminTabBtnText, activeTab === 'ENSEIGNANTS' && styles.adminTabBtnTextActive]}>
-                Professeurs ({enseignants.length})
-              </Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.navOpenModalBtn}
+                  onPress={() => setShowNavModal(true)}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="grid" size={13} color="#1D4ED8" />
+                  <Text style={styles.navOpenModalText}>Changer</Text>
+                  <Feather name="chevron-down" size={13} color="#1D4ED8" />
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.adminTabBtn, activeTab === 'GROUPES' && styles.adminTabBtnActive]}
-              onPress={() => setActiveTab('GROUPES')}
-              activeOpacity={0.8}
-            >
-              <Feather name="layers" size={12} color={activeTab === 'GROUPES' ? '#1E293B' : '#64748B'} />
-              <Text style={[styles.adminTabBtnText, activeTab === 'GROUPES' && styles.adminTabBtnTextActive]}>
-                Classes ({groupes.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.adminTabBtn, activeTab === 'MATIERES' && styles.adminTabBtnActive]}
-              onPress={() => setActiveTab('MATIERES')}
-              activeOpacity={0.8}
-            >
-              <Feather name="book" size={12} color={activeTab === 'MATIERES' ? '#1E293B' : '#64748B'} />
-              <Text style={[styles.adminTabBtnText, activeTab === 'MATIERES' && styles.adminTabBtnTextActive]}>
-                Modules ({matieres.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.adminTabBtn, activeTab === 'SALLES' && styles.adminTabBtnActive]}
-              onPress={() => setActiveTab('SALLES')}
-              activeOpacity={0.8}
-            >
-              <Feather name="home" size={12} color={activeTab === 'SALLES' ? '#1E293B' : '#64748B'} />
-              <Text style={[styles.adminTabBtnText, activeTab === 'SALLES' && styles.adminTabBtnTextActive]}>
-                Salles ({salles.length})
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
+                <TouchableOpacity
+                  style={styles.navArrowBtn}
+                  onPress={handleNextTab}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Section suivante"
+                >
+                  <Feather name="chevron-right" size={16} color="#475569" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
 
           {/* =========================================================================
               ONGLET 1 : DEMANDES D'INSCRIPTION EN ATTENTE
@@ -1245,6 +1344,118 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* MODAL DE NAVIGATION AU MILIEU DE L'ÉCRAN */}
+      <Modal
+        visible={showNavModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNavModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.navModalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowNavModal(false)}
+        >
+          <View style={styles.navModalCard} onStartShouldSetResponder={() => true}>
+            {/* Entête du Modal */}
+            <View style={styles.navModalHeader}>
+              <View style={styles.navModalHeaderLeft}>
+                <View style={styles.navModalIconCircle}>
+                  <Feather name="grid" size={16} color="#1D4ED8" />
+                </View>
+                <View>
+                  <Text style={styles.navModalTitle}>Navigation Administrative</Text>
+                  <Text style={styles.navModalSubtitle}>Sélectionnez une section à gérer</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.navModalCloseBtn}
+                onPress={() => setShowNavModal(false)}
+                activeOpacity={0.7}
+              >
+                <Feather name="x" size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Liste des 6 Sections au Centre */}
+            <ScrollView
+              style={styles.navModalScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              {navTabsConfig.map((item) => {
+                const isActive = activeTab === item.key;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[
+                      styles.navModalItem,
+                      isActive && styles.navModalItemActive,
+                    ]}
+                    onPress={() => {
+                      setActiveTab(item.key);
+                      setShowNavModal(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.navModalItemIcon, { backgroundColor: item.bgColor }]}>
+                      <Feather name={item.icon} size={18} color={item.color} />
+                    </View>
+
+                    <View style={styles.navModalItemTextCol}>
+                      <View style={styles.navModalItemTitleRow}>
+                        <Text
+                          style={[
+                            styles.navModalItemTitle,
+                            isActive && styles.navModalItemTitleActive,
+                          ]}
+                        >
+                          {item.title}
+                        </Text>
+                        <View
+                          style={[
+                            styles.navModalItemBadge,
+                            { backgroundColor: item.bgColor },
+                            isActive && { backgroundColor: '#DBEAFE' },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.navModalItemBadgeText,
+                              { color: item.color },
+                              isActive && { color: '#1D4ED8', fontWeight: '800' },
+                            ]}
+                          >
+                            {item.count}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.navModalItemSub} numberOfLines={1}>
+                        {item.subtitle}
+                      </Text>
+                    </View>
+
+                    {isActive && (
+                      <View style={styles.navModalActiveCheck}>
+                        <Feather name="check" size={15} color="#2563EB" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Pied du modal */}
+            <TouchableOpacity
+              style={styles.navModalFooterBtn}
+              onPress={() => setShowNavModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.navModalFooterBtnText}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1319,35 +1530,233 @@ const styles = StyleSheet.create({
     color: theme.colors.textMain,
     marginTop: 2,
   },
-  adminTabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    borderRadius: theme.radius.sm,
-    padding: 3,
-    marginBottom: 14,
-    gap: 3,
+  kpiSmallCardActive: {
+    borderColor: '#2563EB',
+    borderWidth: 2,
+    backgroundColor: '#EFF6FF',
   },
-  adminTabBtn: {
+  kpiSmallLabelActive: {
+    color: '#1D4ED8',
+  },
+  kpiSmallValueActive: {
+    color: '#1D4ED8',
+  },
+  navBarCardContainer: {
+    marginBottom: 16,
+  },
+  navBarCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    ...theme.shadows.card,
+    gap: 8,
+  },
+  navBarLeftContent: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  navIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navTextCol: {
+    flex: 1,
+  },
+  navTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  navActiveTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  navCountBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 10,
+  },
+  navCountBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  navActiveSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  navControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 5,
-    paddingVertical: 8,
-    borderRadius: 6,
   },
-  adminTabBtnActive: {
-    backgroundColor: '#FFFFFF',
-    ...theme.shadows.subtle,
+  navArrowBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  adminTabBtnText: {
+  navOpenModalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  navOpenModalText: {
     fontSize: 11.5,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  navModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  navModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '85%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    ...theme.shadows.card,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  navModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  navModalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  navModalIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navModalTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  navModalSubtitle: {
+    fontSize: 11.5,
     color: '#64748B',
   },
-  adminTabBtnTextActive: {
-    color: '#0F172A',
+  navModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navModalScroll: {
+    marginVertical: 4,
+  },
+  navModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 11,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 8,
+    gap: 11,
+  },
+  navModalItemActive: {
+    borderColor: '#2563EB',
+    backgroundColor: '#F8FAFC',
+  },
+  navModalItemIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navModalItemTextCol: {
+    flex: 1,
+  },
+  navModalItemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  navModalItemTitle: {
+    fontSize: 13,
     fontWeight: '700',
+    color: '#334155',
+  },
+  navModalItemTitleActive: {
+    color: '#1D4ED8',
+    fontWeight: '800',
+  },
+  navModalItemBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 8,
+  },
+  navModalItemBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  navModalItemSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  navModalActiveCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navModalFooterBtn: {
+    marginTop: 12,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  navModalFooterBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#475569',
   },
   tabSectionHeader: {
     flexDirection: 'row',

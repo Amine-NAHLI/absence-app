@@ -59,3 +59,25 @@ export interface AdminEnseignant {
   actif: boolean;
 }
 
+export interface SeanceAujourdhui {
+  id: number;
+  dateSeance: string;
+  heureDebut: string;
+  heureFin: string;
+  typeSeance: string;
+  salle: string;
+  matiereId: number;
+  matiereCode: string;
+  matiereNom: string;
+  groupeId: number;
+  groupeCode: string;
+  groupeNom: string;
+  groupeEffectif: number;
+  enseignantId: number;
+  enseignantNom: string;
+  statut: string;
+  appelFait: boolean;
+  nbAbsents: number;
+}
+
+

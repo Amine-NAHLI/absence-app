@@ -131,3 +131,36 @@ export const demarrerOuObtenirSeance = async (params: {
   }
 };
 
+/**
+ * Récupérer les séances de la journée pour l'enseignant.
+ */
+export const getSeancesAujourdhui = async (enseignantId?: number): Promise<any[]> => {
+  const url = enseignantId
+    ? `${API_BASE_URL}/seances/enseignant/${enseignantId}/aujourdhui`
+    : `${API_BASE_URL}/seances/aujourdhui`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.error('[AbsenceService] getSeancesAujourdhui error:', err);
+    return [];
+  }
+};
+
+/**
+ * Clôturer une séance une fois l'émargement terminé.
+ */
+export const cloturerSeance = async (seanceId: number): Promise<any> => {
+  const url = `${API_BASE_URL}/seances/${seanceId}/cloturer`;
+  try {
+    const res = await fetch(url, { method: 'PUT' });
+    if (!res.ok) throw new Error('Impossible de clôturer la séance');
+    return await res.json();
+  } catch (err) {
+    console.error('[AbsenceService] cloturerSeance error:', err);
+    throw err;
+  }
+};
+
+
