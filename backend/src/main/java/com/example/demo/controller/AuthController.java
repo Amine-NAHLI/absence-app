@@ -7,6 +7,7 @@ import com.example.demo.entity.*;
 import com.example.demo.repository.EnseignantRepository;
 import com.example.demo.repository.EtudiantRepository;
 import com.example.demo.repository.GroupeRepository;
+import com.example.demo.repository.MatiereRepository;
 import com.example.demo.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class AuthController {
     private final EtudiantRepository etudiantRepository;
     private final EnseignantRepository enseignantRepository;
     private final GroupeRepository groupeRepository;
+    private final MatiereRepository matiereRepository;
 
     /**
      * Authentification utilisateur.
@@ -109,13 +111,32 @@ public class AuthController {
                     .body(Map.of("success", false, "message", "Cette adresse email institutionnelle est déjà enregistrée."));
         }
 
-        // 2. Détermination du rôle
+        // 2. Détermination du rôle et validation des prérequis académiques (garde-fous)
         Role role;
         try {
             role = Role.valueOf(request.getRole().trim().toUpperCase());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("success", false, "message", "Rôle invalide. Choisissez ETUDIANT ou ENSEIGNANT."));
+        }
+
+        Groupe groupeChoisi = null;
+        if (role == Role.ETUDIANT) {
+            if (groupeRepository.count() == 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("success", false, "message", "Inscriptions suspendues : Aucune classe n'est ouverte pour le moment. L'administration doit d'abord créer les classes."));
+            }
+            if (request.getGroupeCode() != null && !request.getGroupeCode().isBlank()) {
+                groupeChoisi = groupeRepository.findByCode(request.getGroupeCode().trim()).orElse(null);
+            }
+            if (groupeChoisi == null) {
+                groupeChoisi = groupeRepository.findAll().stream().findFirst().orElse(null);
+            }
+        } else if (role == Role.ENSEIGNANT) {
+            if (matiereRepository.count() == 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("success", false, "message", "Inscriptions suspendues : Aucun module d'enseignement n'est disponible pour le moment. L'administration doit d'abord configurer les modules."));
+            }
         }
 
         // 3. Création du compte User (actif = false par défaut)
@@ -133,16 +154,6 @@ public class AuthController {
 
         // 4. Création du profil associé
         if (role == Role.ETUDIANT) {
-            Groupe groupe = null;
-            if (request.getGroupeCode() != null && !request.getGroupeCode().isBlank()) {
-                groupe = groupeRepository.findByCode(request.getGroupeCode().trim()).orElse(null);
-            }
-            if (groupe == null) {
-                groupe = groupeRepository.findByCode("GI4-A").orElseGet(() ->
-                        groupeRepository.findAll().stream().findFirst().orElse(null)
-                );
-            }
-
             String matricule = request.getMatricule() != null && !request.getMatricule().isBlank()
                     ? request.getMatricule().trim()
                     : "ETU-" + String.format("%03d", savedUser.getId());
@@ -155,7 +166,7 @@ public class AuthController {
                     .user(savedUser)
                     .matricule(matricule)
                     .cne(cne)
-                    .groupe(groupe)
+                    .groupe(groupeChoisi)
                     .build();
             etudiantRepository.save(etudiant);
 
