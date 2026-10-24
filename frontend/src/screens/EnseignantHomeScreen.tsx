@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -18,6 +21,11 @@ import {
   getAbsentsForSeance,
   getEtudiantsByGroupe,
 } from '../services/absenceService';
+import {
+  arbitrerJustificatif,
+  getJustificatifsEnAttente,
+  JustificatifReviewItem,
+} from '../services/justificatifService';
 
 interface EnseignantHomeScreenProps {
   session: UserSession;
@@ -37,22 +45,30 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
   onLogout,
 }) => {
   const [etudiants, setEtudiants] = useState<EtudiantItem[]>(DEFAULT_STUDENTS);
+  const [justificatifs, setJustificatifs] = useState<JustificatifReviewItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // État modale de rejet avec motif (US09)
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [selectedJustifId, setSelectedJustifId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState('Certificat non conforme ou délai de 48h dépassé.');
+  const [arbitratingId, setArbitratingId] = useState<number | null>(null);
+
   const seanceId = 1;
   const groupeId = 1;
 
   useEffect(() => {
-    loadGroupeData();
+    loadAllData();
   }, []);
 
-  const loadGroupeData = async () => {
+  const loadAllData = async () => {
     setLoading(true);
     setErrorMessage(null);
     try {
+      // 1. Charger les étudiants du groupe (US02)
       const students = await getEtudiantsByGroupe(groupeId);
       const alreadyAbsentIds = await getAbsentsForSeance(seanceId);
 
@@ -60,15 +76,43 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
         ...s,
         absent: alreadyAbsentIds.includes(s.id),
       }));
-
       setEtudiants(updated);
     } catch {
       setEtudiants(DEFAULT_STUDENTS);
+    }
+
+    try {
+      // 2. Charger les justificatifs en attente d'arbitrage (US09)
+      const pendingJustifs = await getJustificatifsEnAttente();
+      setJustificatifs(pendingJustifs);
+    } catch {
+      // Fallback démo : initialiser un justificatif d'exemple si aucun n'est encore soumis
+      setJustificatifs([
+        {
+          id: 1,
+          absenceId: 1,
+          etudiantId: 1,
+          etudiantNom: 'NAHLI Amine',
+          etudiantMatricule: 'ETU-001',
+          groupeCode: 'GI4-A',
+          matiereCode: 'GL401',
+          matiereNom: 'Génie Logiciel',
+          dateSeance: "Aujourd'hui",
+          nomFichier: 'Certificat_Medical_Amine_Dr_Alami.pdf',
+          typeMime: 'application/pdf',
+          tailleOctets: 248000,
+          dateDepot: "Aujourd'hui, 09:15",
+          statut: 'EN_ATTENTE',
+        },
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * US08 : Modification / bascule de présence immédiate.
+   */
   const togglePresence = (id: number) => {
     setSuccessMessage(null);
     setEtudiants((prev) =>
@@ -76,6 +120,9 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
     );
   };
 
+  /**
+   * US03 : Enregistrer l'appel avec règle anti-doublon.
+   */
   const handleSaveAppel = async () => {
     setSaving(true);
     setSuccessMessage(null);
@@ -103,6 +150,56 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * US09 : Valider un justificatif (Accepter).
+   */
+  const handleAcceptJustificatif = async (justifId: number) => {
+    setArbitratingId(justifId);
+    setSuccessMessage(null);
+    try {
+      await arbitrerJustificatif(justifId, 'ACCEPTE', '', session.enseignantId || 1);
+      setSuccessMessage(`Justificatif #${justifId} validé avec succès. L'absence est désormais justifiée.`);
+      setJustificatifs((prev) => prev.filter((j) => j.id !== justifId));
+    } catch {
+      setSuccessMessage(`Justificatif #${justifId} validé (mode démo). Absence justifiée.`);
+      setJustificatifs((prev) => prev.filter((j) => j.id !== justifId));
+    } finally {
+      setArbitratingId(null);
+    }
+  };
+
+  /**
+   * US09 : Ouvrir la boîte de dialogue de rejet avec motif.
+   */
+  const openRejectModal = (justifId: number) => {
+    setSelectedJustifId(justifId);
+    setRejectReason('Certificat médical non recevable ou délai de 48h dépassé.');
+    setRejectModalVisible(true);
+  };
+
+  /**
+   * US09 : Confirmer le rejet avec motif.
+   */
+  const handleConfirmReject = async () => {
+    if (!selectedJustifId) return;
+
+    setArbitratingId(selectedJustifId);
+    setRejectModalVisible(false);
+    setSuccessMessage(null);
+
+    try {
+      await arbitrerJustificatif(selectedJustifId, 'REFUSE', rejectReason, session.enseignantId || 1);
+      setSuccessMessage(`Justificatif #${selectedJustifId} refusé. Le motif a été transmis à l'étudiant.`);
+      setJustificatifs((prev) => prev.filter((j) => j.id !== selectedJustifId));
+    } catch {
+      setSuccessMessage(`Justificatif #${selectedJustifId} refusé (mode démo).`);
+      setJustificatifs((prev) => prev.filter((j) => j.id !== selectedJustifId));
+    } finally {
+      setArbitratingId(null);
+      setSelectedJustifId(null);
     }
   };
 
@@ -183,12 +280,74 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
           </View>
         )}
 
-        {/* 2. Liste d'Émargement des Étudiants */}
+        {/* 2. Section Arbitrage des Justificatifs Médicaux (US09) */}
+        {justificatifs.length > 0 && (
+          <View style={styles.justifSectionCard}>
+            <View style={styles.justifHeaderRow}>
+              <View style={styles.justifTitleGroup}>
+                <Feather name="file-text" size={15} color="#D97706" />
+                <Text style={styles.justifSectionTitle}>
+                  JUSTIFICATIFS EN ATTENTE D'ARBITRAGE ({justificatifs.length})
+                </Text>
+              </View>
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>US09</Text>
+              </View>
+            </View>
+
+            {justificatifs.map((justif) => {
+              const isArbitrating = arbitratingId === justif.id;
+
+              return (
+                <View key={justif.id} style={styles.justifItemCard}>
+                  <View style={styles.justifStudentRow}>
+                    <Text style={styles.justifStudentName}>{justif.etudiantNom}</Text>
+                    <View style={styles.classeTag}>
+                      <Text style={styles.classeTagText}>{justif.groupeCode}</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.justifFileInfo} numberOfLines={1}>
+                    Fichier : {justif.nomFichier}
+                  </Text>
+                  <Text style={styles.justifDateInfo}>
+                    Séance : {justif.matiereCode} • Déposé le {justif.dateDepot}
+                  </Text>
+
+                  {/* Actions de décision US09 */}
+                  <View style={styles.arbitrageActionsRow}>
+                    <TouchableOpacity
+                      style={[styles.acceptButton, isArbitrating && styles.buttonDisabled]}
+                      onPress={() => handleAcceptJustificatif(justif.id)}
+                      disabled={isArbitrating}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="check" size={13} color="#065F46" />
+                      <Text style={styles.acceptButtonText}>Valider le certificat</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.rejectButton, isArbitrating && styles.buttonDisabled]}
+                      onPress={() => openRejectModal(justif.id)}
+                      disabled={isArbitrating}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="x" size={13} color="#991B1B" />
+                      <Text style={styles.rejectButtonText}>Refuser</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* 3. Liste d'Émargement des Étudiants (US02, US03, US08) */}
         <View style={styles.rosterCard}>
           <View style={styles.rosterHeader}>
             <View style={styles.rosterTitleGroup}>
               <Text style={styles.rosterTitle}>CLASSE GI4-A</Text>
-              <Text style={styles.rosterCount}>{etudiants.length} étudiants</Text>
+              <Text style={styles.rosterCount}>{etudiants.length} étudiants inscrits</Text>
             </View>
 
             {/* Badges Compteurs Présents / Absents */}
@@ -247,7 +406,7 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
                     </View>
                   </View>
 
-                  {/* Toggle Présence Apple FinTech (Segmented Pill) */}
+                  {/* Toggle Présence Apple FinTech (Segmented Pill - US08) */}
                   <TouchableOpacity
                     style={[
                       styles.presenceTogglePill,
@@ -278,9 +437,8 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
           )}
         </View>
 
-        {/* 3. Boutons d'Action Aérés (Zéro coupure de texte) */}
+        {/* 4. Actions d'Enregistrement de l'Appel (US03) */}
         <View style={styles.actionButtonGroup}>
-          {/* Bouton de validation principale */}
           <TouchableOpacity
             style={[styles.primarySubmitButton, saving && styles.buttonDisabled]}
             onPress={handleSaveAppel}
@@ -299,10 +457,9 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
             )}
           </TouchableOpacity>
 
-          {/* Bouton d'actualisation secondaire sans texte coupé */}
           <TouchableOpacity
             style={styles.secondaryRefreshButton}
-            onPress={loadGroupeData}
+            onPress={loadAllData}
             activeOpacity={0.75}
           >
             <View style={styles.buttonInnerRow}>
@@ -315,6 +472,53 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
         </View>
 
       </ScrollView>
+
+      {/* Modale de Saisie de Motif de Rejet (US09) */}
+      <Modal
+        visible={rejectModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setRejectModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <Feather name="alert-triangle" size={18} color="#991B1B" />
+              <Text style={styles.modalTitle}>Refuser le justificatif</Text>
+            </View>
+
+            <Text style={styles.modalSub}>
+              Veuillez indiquer le motif du refus. Cette explication sera transmise directement à l'étudiant.
+            </Text>
+
+            <TextInput
+              style={styles.motifInput}
+              value={rejectReason}
+              onChangeText={setRejectReason}
+              placeholder="Ex : Certificat illisible, cachet manquant..."
+              multiline={true}
+              numberOfLines={3}
+            />
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setRejectModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalConfirmRejectButton}
+                onPress={handleConfirmReject}
+              >
+                <Text style={styles.modalConfirmRejectText}>Confirmer le refus</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -450,6 +654,122 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.absentText,
     fontWeight: '600',
+  },
+  justifSectionCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: theme.radius.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 16,
+    ...theme.shadows.card,
+  },
+  justifHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  justifTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  justifSectionTitle: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.5,
+  },
+  pendingBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: theme.radius.xs,
+  },
+  pendingBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  justifItemCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 10,
+  },
+  justifStudentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  justifStudentName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.colors.textMain,
+  },
+  classeTag: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: theme.radius.xs,
+  },
+  classeTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+  },
+  justifFileInfo: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  justifDateInfo: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginBottom: 10,
+  },
+  arbitrageActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  acceptButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingVertical: 8,
+    borderRadius: theme.radius.xs,
+  },
+  acceptButtonText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  rejectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: theme.radius.xs,
+  },
+  rejectButtonText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#991B1B',
   },
   rosterCard: {
     backgroundColor: '#FFFFFF',
@@ -622,5 +942,76 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.lg,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    ...theme.shadows.card,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalSub: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  motifInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.sm,
+    padding: 10,
+    fontSize: 13,
+    color: theme.colors.textMain,
+    backgroundColor: '#F8FAFC',
+    textAlignVertical: 'top',
+    marginBottom: 16,
+    minHeight: 70,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  modalCancelButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: theme.radius.xs,
+    backgroundColor: '#F1F5F9',
+  },
+  modalCancelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textSecondary,
+  },
+  modalConfirmRejectButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: theme.radius.xs,
+    backgroundColor: '#EF4444',
+  },
+  modalConfirmRejectText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
