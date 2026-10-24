@@ -12,4 +12,5 @@ public interface SeanceRepository extends JpaRepository<Seance, Long> {
     List<Seance> findByEnseignantId(Long enseignantId);
     List<Seance> findByDateSeance(LocalDate dateSeance);
     List<Seance> findByEnseignantIdAndDateSeance(Long enseignantId, LocalDate dateSeance);
+    List<Seance> findByGroupeIdAndMatiereIdAndDateSeance(Long groupeId, Long matiereId, LocalDate dateSeance);
 }

@@ -387,4 +387,128 @@ public class AdminController {
                 "message", "Base de données entièrement purgée. Prête pour une configuration de zéro par l'administrateur."
         ));
     }
+
+    // =========================================================================
+    // 5. GESTION ET CONSULTATION DES ÉTUDIANTS & ENSEIGNANTS
+    // =========================================================================
+
+    /**
+     * Liste exhaustive de tous les étudiants enregistrés dans l'établissement.
+     */
+    @GetMapping("/etudiants")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<EtudiantDTO>> getAllEtudiants() {
+        List<Etudiant> etudiants = etudiantRepository.findAll();
+        List<EtudiantDTO> dtos = etudiants.stream()
+                .filter(e -> e.getUser() != null)
+                .map(e -> EtudiantDTO.builder()
+                        .id(e.getId())
+                        .userId(e.getUser().getId())
+                        .nom(e.getUser().getNom())
+                        .prenom(e.getUser().getPrenom())
+                        .email(e.getUser().getEmail())
+                        .telephone(e.getUser().getTelephone())
+                        .matricule(e.getMatricule())
+                        .cne(e.getCne())
+                        .photoUrl(e.getPhotoUrl())
+                        .groupeCode(e.getGroupe() != null ? e.getGroupe().getCode() : null)
+                        .groupeNom(e.getGroupe() != null ? e.getGroupe().getNom() : null)
+                        .actif(Boolean.TRUE.equals(e.getUser().getActif()))
+                        .build())
+                .sorted(Comparator.comparing(EtudiantDTO::getNom, String.CASE_INSENSITIVE_ORDER))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+
+    /**
+     * Suppression définitive d'un étudiant par l'administrateur.
+     */
+    @DeleteMapping("/etudiants/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteEtudiant(@PathVariable Long id) {
+        Optional<Etudiant> etuOpt = etudiantRepository.findById(id);
+        if (etuOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Étudiant introuvable."));
+        }
+        Etudiant etudiant = etuOpt.get();
+        User user = etudiant.getUser();
+
+        // 1. Supprimer d'abord les justificatifs déposés par cet étudiant
+        justificatifRepository.findByEtudiantIdOrderByDateDepotDesc(etudiant.getId())
+                .forEach(justificatifRepository::delete);
+
+        // 2. Supprimer les absences enregistrées pour cet étudiant
+        absenceRepository.findByEtudiantIdOrderByDateMarquageDesc(etudiant.getId())
+                .forEach(absenceRepository::delete);
+
+        // 3. Supprimer l'entité étudiant puis le compte utilisateur
+        etudiantRepository.delete(etudiant);
+        if (user != null) {
+            userRepository.delete(user);
+        }
+
+        log.info("Étudiant ID: {} supprimé avec succès par l'administrateur", id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Étudiant supprimé avec succès."));
+    }
+
+    /**
+     * Liste exhaustive de tous les enseignants / professeurs de l'établissement.
+     */
+    @GetMapping("/enseignants")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<EnseignantDTO>> getAllEnseignants() {
+        List<Enseignant> enseignants = enseignantRepository.findAll();
+        List<EnseignantDTO> dtos = enseignants.stream()
+                .filter(p -> p.getUser() != null)
+                .map(p -> EnseignantDTO.builder()
+                        .id(p.getId())
+                        .userId(p.getUser().getId())
+                        .nom(p.getUser().getNom())
+                        .prenom(p.getUser().getPrenom())
+                        .email(p.getUser().getEmail())
+                        .telephone(p.getUser().getTelephone())
+                        .matricule(p.getMatricule())
+                        .departement(p.getDepartement())
+                        .specialite(p.getSpecialite())
+                        .actif(Boolean.TRUE.equals(p.getUser().getActif()))
+                        .build())
+                .sorted(Comparator.comparing(EnseignantDTO::getNom, String.CASE_INSENSITIVE_ORDER))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+
+    /**
+     * Suppression définitive d'un enseignant par l'administrateur.
+     */
+    @DeleteMapping("/enseignants/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteEnseignant(@PathVariable Long id) {
+        Optional<Enseignant> profOpt = enseignantRepository.findById(id);
+        if (profOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Enseignant introuvable."));
+        }
+        Enseignant enseignant = profOpt.get();
+        User user = enseignant.getUser();
+
+        // 1. Détacher les absences marquées par cet enseignant
+        absenceRepository.findAll().stream()
+                .filter(a -> a.getEnseignant() != null && a.getEnseignant().getId().equals(enseignant.getId()))
+                .forEach(a -> {
+                    a.setEnseignant(null);
+                    absenceRepository.save(a);
+                });
+
+        // 2. Supprimer l'enseignant puis son compte utilisateur
+        enseignantRepository.delete(enseignant);
+        if (user != null) {
+            userRepository.delete(user);
+        }
+
+        log.info("Enseignant ID: {} supprimé avec succès par l'administrateur", id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Enseignant supprimé avec succès."));
+    }
 }
