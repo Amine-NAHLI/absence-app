@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { loginUser, registerUser } from '../services/authService';
+import { getPublicGroupes, getPublicMatieres } from '../services/adminService';
 import { RegisterPayload, UserSession } from '../types/auth';
+import { Groupe, Matiere } from '../types/academic';
 import { theme } from '../theme/theme';
 
 interface LoginScreenProps {
@@ -27,6 +29,11 @@ type UserRoleSelection = 'ETUDIANT' | 'ENSEIGNANT';
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   // Mode d'authentification
   const [authMode, setAuthMode] = useState<AuthMode>('LOGIN');
+
+  // Données académiques réelles (chargées dynamiquement depuis la base)
+  const [availableGroupes, setAvailableGroupes] = useState<Groupe[]>([]);
+  const [availableMatieres, setAvailableMatieres] = useState<Matiere[]>([]);
+  const [loadingAcademic, setLoadingAcademic] = useState(false);
 
   // Champs de Connexion
   const [loginEmail, setLoginEmail] = useState('');
@@ -43,19 +50,47 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [telephone, setTelephone] = useState('');
   
   // Champs Étudiant
-  const [groupeCode, setGroupeCode] = useState('GI4-A');
+  const [groupeCode, setGroupeCode] = useState('');
   const [matriculeEtu, setMatriculeEtu] = useState('');
   const [cne, setCne] = useState('');
 
   // Champs Enseignant
   const [matriculeProf, setMatriculeProf] = useState('');
   const [departement, setDepartement] = useState('Génie Informatique');
-  const [specialite, setSpecialite] = useState('Génie Logiciel & Architecture');
+  const [specialite, setSpecialite] = useState('');
 
   // États d'exécution et messages
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Chargement des classes et modules réels pour l'inscription
+  const loadAcademicData = async () => {
+    setLoadingAcademic(true);
+    try {
+      const [groupes, matieres] = await Promise.all([
+        getPublicGroupes(),
+        getPublicMatieres(),
+      ]);
+      setAvailableGroupes(groupes);
+      setAvailableMatieres(matieres);
+
+      if (groupes.length > 0 && !groupeCode) {
+        setGroupeCode(groupes[0].code);
+      }
+      if (matieres.length > 0 && !specialite) {
+        setSpecialite(matieres[0].nom);
+      }
+    } catch (err) {
+      console.error('[LoginScreen] Erreur chargement academic data:', err);
+    } finally {
+      setLoadingAcademic(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAcademicData();
+  }, []);
 
   // Gestion de la Connexion
   const handleLogin = async () => {
@@ -81,9 +116,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     }
   };
 
-
   // Gestion de l'Inscription
   const handleRegister = async () => {
+    // Vérification garde-fous
+    if (selectedRole === 'ETUDIANT' && availableGroupes.length === 0) {
+      setErrorMessage("Impossible de s'inscrire : Aucune classe n'a été créée par l'administration.");
+      return;
+    }
+
+    if (selectedRole === 'ENSEIGNANT' && availableMatieres.length === 0) {
+      setErrorMessage("Impossible de s'inscrire : Aucun module d'enseignement n'a été créé par l'administration.");
+      return;
+    }
+
     if (!nom.trim() || !prenom.trim() || !registerEmail.trim() || !registerPassword.trim()) {
       setErrorMessage('Veuillez remplir tous les champs obligatoires (Nom, Prénom, Email, Mot de passe).');
       return;
@@ -109,9 +154,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         ? (matriculeEtu.trim() || undefined)
         : (matriculeProf.trim() || undefined),
       cne: selectedRole === 'ETUDIANT' ? (cne.trim() || undefined) : undefined,
-      groupeCode: selectedRole === 'ETUDIANT' ? groupeCode : undefined,
+      groupeCode: selectedRole === 'ETUDIANT' ? (groupeCode || (availableGroupes[0]?.code ?? undefined)) : undefined,
       departement: selectedRole === 'ENSEIGNANT' ? departement.trim() : undefined,
-      specialite: selectedRole === 'ENSEIGNANT' ? specialite.trim() : undefined,
+      specialite: selectedRole === 'ENSEIGNANT' ? (specialite.trim() || (availableMatieres[0]?.nom ?? undefined)) : undefined,
     };
 
     try {
@@ -119,9 +164,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       setSuccessMessage(
         res.message || 'Demande d\'inscription transmise avec succès à l\'administrateur pour approbation.'
       );
-      // Préparer l'email pour la future connexion
       setLoginEmail(registerEmail.trim().toLowerCase());
-      // Réinitialiser les champs d'inscription
       setNom('');
       setPrenom('');
       setRegisterEmail('');
@@ -142,6 +185,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     errorMessage.toLowerCase().includes('approbation') ||
     errorMessage.toLowerCase().includes('valide')
   );
+
+  const canStudentRegister = availableGroupes.length > 0;
+  const canTeacherRegister = availableMatieres.length > 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -193,6 +239,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 setAuthMode('REGISTER');
                 setErrorMessage(null);
                 setSuccessMessage(null);
+                loadAcademicData();
               }}
               activeOpacity={0.8}
             >
@@ -319,7 +366,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   </View>
                 )}
               </TouchableOpacity>
-
             </View>
           )}
 
@@ -368,6 +414,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   </TouchableOpacity>
                 </View>
               </View>
+
+              {/* ================= GARDE-FOUS ACADÉMIQUES ================= */}
+              {selectedRole === 'ETUDIANT' && !canStudentRegister && !loadingAcademic && (
+                <View style={styles.guardrailCard}>
+                  <Feather name="alert-triangle" size={18} color="#D97706" style={{ marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.guardrailTitle}>Inscriptions Étudiants suspendues</Text>
+                    <Text style={styles.guardrailSub}>
+                      Aucune classe n'est ouverte pour le moment. L'administration de l'établissement doit d'abord créer et configurer les promotions dans son tableau de bord.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {selectedRole === 'ENSEIGNANT' && !canTeacherRegister && !loadingAcademic && (
+                <View style={styles.guardrailCard}>
+                  <Feather name="alert-triangle" size={18} color="#D97706" style={{ marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.guardrailTitle}>Inscriptions Enseignants suspendues</Text>
+                    <Text style={styles.guardrailSub}>
+                      Aucun module d'enseignement n'est disponible pour le moment. L'administration doit d'abord créer les modules pédagogiques dans son tableau de bord.
+                    </Text>
+                  </View>
+                </View>
+              )}
 
               {/* Ligne Nom & Prénom */}
               <View style={styles.dualInputRow}>
@@ -468,32 +539,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 </View>
               </View>
 
-              {/* Champs Spécifiques ÉTUDIANT */}
+              {/* ================= CHAMPS ÉTUDIANT ================= */}
               {selectedRole === 'ETUDIANT' && (
                 <>
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Classe / Promotion affectée *</Text>
-                    <View style={styles.rolePickerRow}>
-                      <TouchableOpacity
-                        style={[styles.roleChip, groupeCode === 'GI4-A' && styles.roleChipActive]}
-                        onPress={() => setGroupeCode('GI4-A')}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.roleChipText, groupeCode === 'GI4-A' && styles.roleChipTextActive]}>
-                          Classe GI4-A
+                    {availableGroupes.length === 0 ? (
+                      <View style={styles.emptySelectorBox}>
+                        <Text style={styles.emptySelectorText}>
+                          Aucune classe configurée par l'administration.
                         </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.roleChip, groupeCode === 'GI4-B' && styles.roleChipActive]}
-                        onPress={() => setGroupeCode('GI4-B')}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.roleChipText, groupeCode === 'GI4-B' && styles.roleChipTextActive]}>
-                          Classe GI4-B
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                      </View>
+                    ) : (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        {availableGroupes.map((grp) => {
+                          const isSelected = (groupeCode || availableGroupes[0]?.code) === grp.code;
+                          return (
+                            <TouchableOpacity
+                              key={grp.id}
+                              style={[styles.dynamicSelectChip, isSelected && styles.dynamicSelectChipActive]}
+                              onPress={() => setGroupeCode(grp.code)}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={[styles.dynamicSelectChipText, isSelected && styles.dynamicSelectChipTextActive]}>
+                                {grp.code}
+                              </Text>
+                              <Text style={[styles.dynamicSelectChipSub, isSelected && { color: '#1D4ED8' }]}>
+                                {grp.nom}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    )}
                   </View>
 
                   <View style={styles.dualInputRow}>
@@ -528,9 +606,41 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 </>
               )}
 
-              {/* Champs Spécifiques ENSEIGNANT */}
+              {/* ================= CHAMPS ENSEIGNANT ================= */}
               {selectedRole === 'ENSEIGNANT' && (
                 <>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Module d'enseignement principal *</Text>
+                    {availableMatieres.length === 0 ? (
+                      <View style={styles.emptySelectorBox}>
+                        <Text style={styles.emptySelectorText}>
+                          Aucun module configuré par l'administration.
+                        </Text>
+                      </View>
+                    ) : (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        {availableMatieres.map((mat) => {
+                          const isSelected = (specialite || availableMatieres[0]?.nom) === mat.nom;
+                          return (
+                            <TouchableOpacity
+                              key={mat.id}
+                              style={[styles.dynamicSelectChip, isSelected && styles.dynamicSelectChipActive]}
+                              onPress={() => setSpecialite(mat.nom)}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={[styles.dynamicSelectChipText, isSelected && styles.dynamicSelectChipTextActive]}>
+                                {mat.code}
+                              </Text>
+                              <Text style={[styles.dynamicSelectChipSub, isSelected && { color: '#047857' }]}>
+                                {mat.nom}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    )}
+                  </View>
+
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Matricule Enseignant</Text>
                     <View style={styles.inputWrapper}>
@@ -559,35 +669,35 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                       />
                     </View>
                   </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Spécialité / Modules enseignés</Text>
-                    <View style={styles.inputWrapper}>
-                      <Feather name="book" size={16} color={theme.colors.textMuted} style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Ex: Génie Logiciel & Design Patterns"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={specialite}
-                        onChangeText={setSpecialite}
-                      />
-                    </View>
-                  </View>
                 </>
               )}
 
               {/* Bouton de Soumission d'Inscription */}
               <TouchableOpacity
-                style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                style={[
+                  styles.primaryButton,
+                  ((selectedRole === 'ETUDIANT' && !canStudentRegister) ||
+                   (selectedRole === 'ENSEIGNANT' && !canTeacherRegister) ||
+                   loading) && styles.buttonDisabled,
+                ]}
                 onPress={handleRegister}
-                disabled={loading}
+                disabled={
+                  (selectedRole === 'ETUDIANT' && !canStudentRegister) ||
+                  (selectedRole === 'ENSEIGNANT' && !canTeacherRegister) ||
+                  loading
+                }
                 activeOpacity={0.88}
               >
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <View style={styles.buttonContent}>
-                    <Text style={styles.primaryButtonText}>Envoyer la demande d'inscription</Text>
+                    <Text style={styles.primaryButtonText}>
+                      {(selectedRole === 'ETUDIANT' && !canStudentRegister) ||
+                       (selectedRole === 'ENSEIGNANT' && !canTeacherRegister)
+                        ? 'Inscriptions fermées'
+                        : "Envoyer la demande d'inscription"}
+                    </Text>
                     <Feather name="send" size={15} color="#FFFFFF" />
                   </View>
                 )}
@@ -598,7 +708,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           {/* Mentions institutionnelles */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              UPF Absence • Génie Informatique 4ème Année • Service Scolarité
+              UPF Absence • Université Privée de Fès • Direction des Études
             </Text>
           </View>
 
@@ -757,6 +867,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  guardrailCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: theme.radius.sm,
+    padding: 12,
+    marginBottom: 14,
+  },
+  guardrailTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  guardrailSub: {
+    fontSize: 11.5,
+    color: '#B45309',
+    lineHeight: 16,
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.lg,
@@ -830,6 +962,44 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
     fontWeight: '700',
   },
+  dynamicSelectChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: theme.radius.sm,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    minWidth: 110,
+  },
+  dynamicSelectChipActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#3B82F6',
+  },
+  dynamicSelectChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.textMain,
+  },
+  dynamicSelectChipTextActive: {
+    color: '#1D4ED8',
+  },
+  dynamicSelectChipSub: {
+    fontSize: 10.5,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+  },
+  emptySelectorBox: {
+    padding: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptySelectorText: {
+    fontSize: 11.5,
+    color: theme.colors.textMuted,
+    fontStyle: 'italic',
+  },
   dualInputRow: {
     flexDirection: 'row',
     gap: 10,
@@ -887,7 +1057,7 @@ const styles = StyleSheet.create({
     ...theme.shadows.subtle,
   },
   buttonDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
   buttonContent: {
     flexDirection: 'row',

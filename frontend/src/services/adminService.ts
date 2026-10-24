@@ -1,115 +1,223 @@
 import { API_BASE_URL } from '../config/api';
 import { DemandeInscription } from '../types/auth';
+import { DisponibiliteInscriptions, Groupe, Matiere, Salle } from '../types/academic';
 
 export interface AdminStats {
   totalEtudiants: number;
   totalEnseignants: number;
   totalAbsences: number;
+  totalClasses?: number;
+  totalModules?: number;
+  totalSalles?: number;
   demandesEnAttente: number;
   tauxAssiduite: string;
 }
 
-/**
- * Récupère la liste de toutes les demandes d'inscription en attente (comptes inactifs).
- */
+// =============================================================================
+// 1. GESTION DES DEMANDES D'INSCRIPTION & STATISTIQUES
+// =============================================================================
+
 export const getDemandesInscription = async (): Promise<DemandeInscription[]> => {
   const url = `${API_BASE_URL}/admin/demandes-inscription`;
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erreur lors de la récupération des demandes (${response.status})`);
-    }
-
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Erreur récupération demandes (${response.status})`);
     return await response.json();
   } catch (error: any) {
     console.error('[AdminService] getDemandesInscription error:', error);
-    throw error;
+    return [];
   }
 };
 
-/**
- * Accepte une demande d'inscription et active le compte utilisateur.
- */
 export const accepterDemandeInscription = async (userId: number): Promise<{ success: boolean; message: string }> => {
   const url = `${API_BASE_URL}/admin/demandes-inscription/${userId}/accepter`;
-  try {
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data?.message || 'Erreur lors de la validation du compte');
-    }
-
-    return data;
-  } catch (error: any) {
-    console.error('[AdminService] accepterDemandeInscription error:', error);
-    throw error;
-  }
+  const response = await fetch(url, { method: 'PUT' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur lors de la validation');
+  return data;
 };
 
-/**
- * Refuse et supprime une demande d'inscription.
- */
 export const refuserDemandeInscription = async (userId: number): Promise<{ success: boolean; message: string }> => {
   const url = `${API_BASE_URL}/admin/demandes-inscription/${userId}/refuser`;
-  try {
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data?.message || 'Erreur lors du refus de la demande');
-    }
-
-    return data;
-  } catch (error: any) {
-    console.error('[AdminService] refuserDemandeInscription error:', error);
-    throw error;
-  }
+  const response = await fetch(url, { method: 'DELETE' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur lors du refus');
+  return data;
 };
 
-/**
- * Récupère les statistiques administratives globales.
- */
 export const getAdminStats = async (): Promise<AdminStats> => {
   const url = `${API_BASE_URL}/admin/statistiques`;
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erreur récupération statistiques (${response.status})`);
-    }
-
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Erreur stats (${response.status})`);
     return await response.json();
-  } catch (error: any) {
-    console.error('[AdminService] getAdminStats error:', error);
-    // Retourne des valeurs par défaut en cas d'indisponibilité
+  } catch (error) {
     return {
       totalEtudiants: 0,
       totalEnseignants: 0,
       totalAbsences: 0,
+      totalClasses: 0,
+      totalModules: 0,
+      totalSalles: 0,
       demandesEnAttente: 0,
-      tauxAssiduite: '94.2%',
+      tauxAssiduite: '95.0%',
     };
   }
+};
+
+// =============================================================================
+// 2. GESTION DES SALLES DE CLASSE
+// =============================================================================
+
+export const getSalles = async (): Promise<Salle[]> => {
+  const url = `${API_BASE_URL}/admin/salles`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Erreur récupération salles (${response.status})`);
+    return await response.json();
+  } catch (error) {
+    console.error('[AdminService] getSalles error:', error);
+    return [];
+  }
+};
+
+export const createSalle = async (salle: { code: string; nom: string; capacite: number; type?: string }): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/salles`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(salle),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur lors de la création de la salle');
+  return data;
+};
+
+export const deleteSalle = async (id: number): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/salles/${id}`;
+  const response = await fetch(url, { method: 'DELETE' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur suppression salle');
+  return data;
+};
+
+// =============================================================================
+// 3. GESTION DES MODULES / MATIÈRES
+// =============================================================================
+
+export const getMatieres = async (): Promise<Matiere[]> => {
+  const url = `${API_BASE_URL}/admin/matieres`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Erreur récupération modules (${response.status})`);
+    return await response.json();
+  } catch (error) {
+    console.error('[AdminService] getMatieres error:', error);
+    return [];
+  }
+};
+
+export const createMatiere = async (matiere: { code: string; nom: string; coefficient: number; heuresTotal?: number }): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/matieres`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(matiere),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur lors de la création du module');
+  return data;
+};
+
+export const deleteMatiere = async (id: number): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/matieres/${id}`;
+  const response = await fetch(url, { method: 'DELETE' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur suppression module');
+  return data;
+};
+
+// =============================================================================
+// 4. GESTION DES CLASSES & ASSOCIATION DES MODULES
+// =============================================================================
+
+export const getGroupes = async (): Promise<Groupe[]> => {
+  const url = `${API_BASE_URL}/admin/groupes`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Erreur récupération classes (${response.status})`);
+    return await response.json();
+  } catch (error) {
+    console.error('[AdminService] getGroupes error:', error);
+    return [];
+  }
+};
+
+export const createGroupe = async (groupe: { code: string; nom: string; filiere?: string; anneeScolaire?: string; matiereIds: number[] }): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/groupes`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(groupe),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur lors de la création de la classe');
+  return data;
+};
+
+export const deleteGroupe = async (id: number): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/groupes/${id}`;
+  const response = await fetch(url, { method: 'DELETE' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur suppression classe');
+  return data;
+};
+
+// =============================================================================
+// 5. ENDPOINTS PUBLICS POUR L'INSCRIPTION SÉCURISÉE
+// =============================================================================
+
+export const getPublicGroupes = async (): Promise<Groupe[]> => {
+  const url = `${API_BASE_URL}/public/groupes`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return [];
+    return await response.json();
+  } catch {
+    return [];
+  }
+};
+
+export const getPublicMatieres = async (): Promise<Matiere[]> => {
+  const url = `${API_BASE_URL}/public/matieres`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return [];
+    return await response.json();
+  } catch {
+    return [];
+  }
+};
+
+export const getDisponibiliteInscriptions = async (): Promise<DisponibiliteInscriptions> => {
+  const url = `${API_BASE_URL}/public/disponibilite-inscriptions`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return { inscriptionsEtudiantsOuvertes: false, inscriptionsEnseignantsOuvertes: false, totalClasses: 0, totalModules: 0 };
+    return await response.json();
+  } catch {
+    return { inscriptionsEtudiantsOuvertes: false, inscriptionsEnseignantsOuvertes: false, totalClasses: 0, totalModules: 0 };
+  }
+};
+
+// =============================================================================
+// 6. PURGE COMPLÈTE
+// =============================================================================
+
+export const purgeComplete = async (): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/purge-complete`;
+  const response = await fetch(url, { method: 'POST' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.message || 'Erreur purge base');
+  return data;
 };
