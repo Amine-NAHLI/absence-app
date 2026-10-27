@@ -12,6 +12,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.demo.dto.*;
+import com.example.demo.service.NotificationService;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +33,7 @@ public class AbsenceController {
     private final EnseignantRepository enseignantRepository;
     private final EtudiantRepository etudiantRepository;
     private final JustificatifRepository justificatifRepository;
+    private final NotificationService notificationService;
 
     /**
      * US03 : Enregistrer l'absence d'un étudiant avec contrôle strict anti-doublon.
@@ -89,6 +94,13 @@ public class AbsenceController {
                             .build();
                     absenceRepository.save(nouvelle);
                     enregistres++;
+                }
+
+                // 🔔 US18 : Déclenchement de la notification WebSocket temps réel
+                try {
+                    notificationService.notifierAbsence(etudiantOpt.get(), seance, typePresence);
+                } catch (Exception notifErr) {
+                    log.warn("Erreur envoi notification WebSocket pour étudiant {}: {}", etudiantId, notifErr.getMessage());
                 }
             }
         }
@@ -188,5 +200,215 @@ public class AbsenceController {
                 "message", "Absence rectifiée avec succès.",
                 "nouveauTypePresence", absence.getTypePresence().name()
         ));
+    }
+
+    /**
+     * US10 : Consulter l'historique complet des absences par groupe, matière, enseignant et date.
+     */
+    @GetMapping("/historique")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<SeanceHistoriqueDTO>> getHistorique(
+            @RequestParam(required = false) Long groupeId,
+            @RequestParam(required = false) Long matiereId,
+            @RequestParam(required = false) Long enseignantId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateDebut,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFin
+    ) {
+        log.info("Consultation de l'historique des absences - groupe: {}, matiere: {}, enseignant: {}", groupeId, matiereId, enseignantId);
+
+        List<Seance> allSeances = seanceRepository.findAll();
+
+        List<SeanceHistoriqueDTO> historique = allSeances.stream()
+                .filter(s -> groupeId == null || (s.getGroupe() != null && s.getGroupe().getId().equals(groupeId)))
+                .filter(s -> matiereId == null || (s.getMatiere() != null && s.getMatiere().getId().equals(matiereId)))
+                .filter(s -> enseignantId == null || (s.getEnseignant() != null && s.getEnseignant().getId().equals(enseignantId)))
+                .filter(s -> dateDebut == null || (s.getDateSeance() != null && !s.getDateSeance().isBefore(dateDebut)))
+                .filter(s -> dateFin == null || (s.getDateSeance() != null && !s.getDateSeance().isAfter(dateFin)))
+                .sorted((s1, s2) -> {
+                    if (s1.getDateSeance() == null || s2.getDateSeance() == null) return 0;
+                    int comp = s2.getDateSeance().compareTo(s1.getDateSeance());
+                    if (comp != 0) return comp;
+                    if (s1.getHeureDebut() == null || s2.getHeureDebut() == null) return 0;
+                    return s2.getHeureDebut().compareTo(s1.getHeureDebut());
+                })
+                .map(s -> {
+                    List<Absence> absences = absenceRepository.findBySeanceId(s.getId());
+                    int effectif = (s.getGroupe() != null)
+                            ? etudiantRepository.findByGroupeId(s.getGroupe().getId()).size()
+                            : 0;
+
+                    int nbAbsents = (int) absences.stream().filter(a -> a.getTypePresence() == TypePresence.ABSENT).count();
+                    int nbRetards = (int) absences.stream().filter(a -> a.getTypePresence() == TypePresence.RETARD).count();
+                    int totalNonPresents = absences.size();
+                    int presents = Math.max(0, effectif - totalNonPresents);
+                    double tauxPresence = effectif > 0 ? ((double) presents / effectif) * 100.0 : 100.0;
+                    tauxPresence = Math.round(tauxPresence * 10.0) / 10.0;
+
+                    String profNom = (s.getEnseignant() != null && s.getEnseignant().getUser() != null)
+                            ? "Prof. " + s.getEnseignant().getUser().getPrenom() + " " + s.getEnseignant().getUser().getNom()
+                            : "Enseignant";
+
+                    List<SeanceHistoriqueDTO.AbsenceDetailItemDTO> details = absences.stream().map(a -> {
+                        Optional<Justificatif> justif = justificatifRepository.findByAbsenceId(a.getId());
+                        Etudiant etu = a.getEtudiant();
+                        String nom = etu != null && etu.getUser() != null ? etu.getUser().getNom() : "";
+                        String prenom = etu != null && etu.getUser() != null ? etu.getUser().getPrenom() : "";
+                        String matricule = etu != null ? etu.getMatricule() : "";
+
+                        return SeanceHistoriqueDTO.AbsenceDetailItemDTO.builder()
+                                .absenceId(a.getId())
+                                .etudiantId(etu != null ? etu.getId() : null)
+                                .matricule(matricule)
+                                .nom(nom)
+                                .prenom(prenom)
+                                .typePresence(a.getTypePresence() != null ? a.getTypePresence().name() : "ABSENT")
+                                .statut(a.getStatut() != null ? a.getStatut().name() : "NON_JUSTIFIEE")
+                                .dateMarquage(a.getDateMarquage() != null ? a.getDateMarquage().toString() : null)
+                                .justificatifId(justif.map(Justificatif::getId).orElse(null))
+                                .justificatifStatut(justif.map(j -> j.getStatut().name()).orElse(null))
+                                .justificatifNom(justif.map(Justificatif::getNomFichier).orElse(null))
+                                .motifRefus(justif.map(Justificatif::getMotifRefus).orElse(null))
+                                .build();
+                    }).collect(Collectors.toList());
+
+                    return SeanceHistoriqueDTO.builder()
+                            .seanceId(s.getId())
+                            .dateSeance(s.getDateSeance())
+                            .heureDebut(s.getHeureDebut())
+                            .heureFin(s.getHeureFin())
+                            .typeSeance(s.getTypeSeance())
+                            .salle(s.getSalle())
+                            .groupeId(s.getGroupe() != null ? s.getGroupe().getId() : null)
+                            .groupeCode(s.getGroupe() != null ? s.getGroupe().getCode() : "")
+                            .groupeNom(s.getGroupe() != null ? s.getGroupe().getNom() : "")
+                            .matiereId(s.getMatiere() != null ? s.getMatiere().getId() : null)
+                            .matiereCode(s.getMatiere() != null ? s.getMatiere().getCode() : "")
+                            .matiereNom(s.getMatiere() != null ? s.getMatiere().getNom() : "")
+                            .enseignantId(s.getEnseignant() != null ? s.getEnseignant().getId() : null)
+                            .enseignantNom(profNom)
+                            .totalEffectif(effectif)
+                            .totalPresents(presents)
+                            .totalAbsents(nbAbsents)
+                            .totalRetards(nbRetards)
+                            .tauxPresence(tauxPresence)
+                            .detailsAbsents(details)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(historique);
+    }
+
+    /**
+     * US11 : Consulter le taux d'absentéisme d'un étudiant avec alerte de seuil (> 20%).
+     */
+    @GetMapping({"/statistiques/etudiant/{id}/taux", "/etudiant/{id}/taux"})
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getTauxAbsenteismeEtudiant(@PathVariable Long id) {
+        Optional<Etudiant> etuOpt = etudiantRepository.findById(id);
+        if (etuOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Étudiant introuvable."));
+        }
+
+        Etudiant etudiant = etuOpt.get();
+        List<Absence> allStudentAbsences = absenceRepository.findByEtudiantId(id);
+
+        Long groupeId = etudiant.getGroupe() != null ? etudiant.getGroupe().getId() : null;
+        List<Seance> seancesGroupe = groupeId != null
+                ? seanceRepository.findByGroupeId(groupeId)
+                : List.of();
+
+        int totalSeances = Math.max(seancesGroupe.size(), allStudentAbsences.size());
+        if (totalSeances == 0) {
+            totalSeances = 1; // Éviter division par zéro
+        }
+
+        int nbAbsents = (int) allStudentAbsences.stream().filter(a -> a.getTypePresence() == TypePresence.ABSENT).count();
+        int nbRetards = (int) allStudentAbsences.stream().filter(a -> a.getTypePresence() == TypePresence.RETARD).count();
+        int nonJustifiees = (int) allStudentAbsences.stream().filter(a -> a.getStatut() == StatutAbsence.NON_JUSTIFIEE || a.getStatut() == StatutAbsence.REFUSEE).count();
+        int justifiees = (int) allStudentAbsences.stream().filter(a -> a.getStatut() == StatutAbsence.JUSTIFIEE).count();
+        int enAttente = (int) allStudentAbsences.stream().filter(a -> a.getStatut() == StatutAbsence.EN_ATTENTE).count();
+
+        // 3 retards = équivalent d'une absence dans le barème académique
+        double absenceEquivalente = nbAbsents + (nbRetards / 3.0);
+        double tauxAbsenteisme = (absenceEquivalente / totalSeances) * 100.0;
+        tauxAbsenteisme = Math.min(100.0, Math.round(tauxAbsenteisme * 10.0) / 10.0);
+        double tauxAssiduite = Math.max(0.0, Math.round((100.0 - tauxAbsenteisme) * 10.0) / 10.0);
+
+        boolean seuilDepasse = tauxAbsenteisme > 20.0;
+        String niveauAlerte;
+        String messageAlerte;
+
+        if (tauxAbsenteisme > 20.0) {
+            niveauAlerte = "CRITIQUE";
+            messageAlerte = "⚠️ Seuil critique de 20% dépassé (" + tauxAbsenteisme + "%). Convocable en commission de discipline pour élimination du module.";
+        } else if (tauxAbsenteisme >= 10.0) {
+            niveauAlerte = "ATTENTION";
+            messageAlerte = "⚠️ Attention : Taux d'absence à " + tauxAbsenteisme + "%. Vous approchez du seuil critique d'exclusion (20%).";
+        } else {
+            niveauAlerte = "NORMAL";
+            messageAlerte = "Assiduité conforme aux exigences pédagogiques (" + tauxAssiduite + "% de présence).";
+        }
+
+        // Répartition par matière
+        Map<Long, List<Absence>> absencesByMatiere = allStudentAbsences.stream()
+                .filter(a -> a.getSeance() != null && a.getSeance().getMatiere() != null)
+                .collect(Collectors.groupingBy(a -> a.getSeance().getMatiere().getId()));
+
+        List<TauxMatiereDTO> matieresStats = absencesByMatiere.entrySet().stream().map(entry -> {
+            List<Absence> matAbsences = entry.getValue();
+            Matiere mat = matAbsences.get(0).getSeance().getMatiere();
+            long seancesMat = seancesGroupe.stream()
+                    .filter(s -> s.getMatiere() != null && s.getMatiere().getId().equals(mat.getId()))
+                    .count();
+            int totalMatSeances = (int) Math.max(seancesMat, matAbsences.size());
+            if (totalMatSeances == 0) totalMatSeances = 1;
+
+            int mAbs = (int) matAbsences.stream().filter(a -> a.getTypePresence() == TypePresence.ABSENT).count();
+            int mRet = (int) matAbsences.stream().filter(a -> a.getTypePresence() == TypePresence.RETARD).count();
+            int mNonJust = (int) matAbsences.stream().filter(a -> a.getStatut() == StatutAbsence.NON_JUSTIFIEE || a.getStatut() == StatutAbsence.REFUSEE).count();
+            int mJust = (int) matAbsences.stream().filter(a -> a.getStatut() == StatutAbsence.JUSTIFIEE).count();
+            double mTaux = ((mAbs + (mRet / 3.0)) / totalMatSeances) * 100.0;
+            mTaux = Math.round(mTaux * 10.0) / 10.0;
+
+            return TauxMatiereDTO.builder()
+                    .matiereId(mat.getId())
+                    .matiereCode(mat.getCode())
+                    .matiereNom(mat.getNom())
+                    .totalSeances(totalMatSeances)
+                    .absences(mAbs)
+                    .retards(mRet)
+                    .nonJustifiees(mNonJust)
+                    .justifiees(mJust)
+                    .tauxAbsence(mTaux)
+                    .seuilDepasse(mTaux > 20.0)
+                    .build();
+        }).collect(Collectors.toList());
+
+        TauxAbsenteismeDTO dto = TauxAbsenteismeDTO.builder()
+                .etudiantId(etudiant.getId())
+                .matricule(etudiant.getMatricule())
+                .nom(etudiant.getUser() != null ? etudiant.getUser().getNom() : "")
+                .prenom(etudiant.getUser() != null ? etudiant.getUser().getPrenom() : "")
+                .groupeCode(etudiant.getGroupe() != null ? etudiant.getGroupe().getCode() : "")
+                .groupeNom(etudiant.getGroupe() != null ? etudiant.getGroupe().getNom() : "")
+                .totalSeances(totalSeances)
+                .totalPresences(Math.max(0, totalSeances - (nbAbsents + nbRetards)))
+                .totalAbsences(nbAbsents)
+                .totalRetards(nbRetards)
+                .absencesNonJustifiees(nonJustifiees)
+                .absencesJustifiees(justifiees)
+                .absencesEnAttente(enAttente)
+                .heuresAbsenceTotal((nbAbsents * 1.5) + (nbRetards * 0.5))
+                .tauxAssiduite(tauxAssiduite)
+                .tauxAbsenteisme(tauxAbsenteisme)
+                .seuilDepasse(seuilDepasse)
+                .niveauAlerte(niveauAlerte)
+                .messageAlerte(messageAlerte)
+                .repartitionParMatiere(matieresStats)
+                .build();
+
+        return ResponseEntity.ok(dto);
     }
 }

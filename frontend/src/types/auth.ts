@@ -2,6 +2,7 @@ export type Role = 'ETUDIANT' | 'ENSEIGNANT' | 'ADMIN';
 
 export interface UserSession {
   id: number;
+  userId?: number;
   email: string;
   nom: string;
   prenom: string;

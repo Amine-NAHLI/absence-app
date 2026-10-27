@@ -163,4 +163,90 @@ export const cloturerSeance = async (seanceId: number): Promise<any> => {
   }
 };
 
+// =============================================================================
+// PHASE 2 (AYA BOUHSINI) API METHODS
+// =============================================================================
+
+import { EmploiDuTemps, SeanceHistorique, TauxAbsenteisme } from '../types/academic';
+
+/**
+ * US10 : Consulter l'historique complet des absences par groupe, matière ou date.
+ */
+export const getHistoriqueAbsences = async (filters?: {
+  groupeId?: number;
+  matiereId?: number;
+  enseignantId?: number;
+  dateDebut?: string;
+  dateFin?: string;
+}): Promise<SeanceHistorique[]> => {
+  const params = new URLSearchParams();
+  if (filters?.groupeId) params.append('groupeId', filters.groupeId.toString());
+  if (filters?.matiereId) params.append('matiereId', filters.matiereId.toString());
+  if (filters?.enseignantId) params.append('enseignantId', filters.enseignantId.toString());
+  if (filters?.dateDebut) params.append('dateDebut', filters.dateDebut);
+  if (filters?.dateFin) params.append('dateFin', filters.dateFin);
+
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const url = `${API_BASE_URL}/absences/historique${query}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Erreur récupération historique (${res.status})`);
+    return await res.json();
+  } catch (err) {
+    console.error('[AbsenceService] getHistoriqueAbsences error:', err);
+    return [];
+  }
+};
+
+/**
+ * US11 : Consulter le taux d'absentéisme d'un étudiant avec seuil d'alerte (> 20%).
+ */
+export const getTauxAbsenteismeEtudiant = async (etudiantId: number): Promise<TauxAbsenteisme | null> => {
+  const url = `${API_BASE_URL}/absences/statistiques/etudiant/${etudiantId}/taux`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      // Fallback sur route alternative
+      const fallbackUrl = `${API_BASE_URL}/statistiques/etudiant/${etudiantId}/taux`;
+      const fallbackRes = await fetch(fallbackUrl);
+      if (!fallbackRes.ok) throw new Error(`Erreur taux (${res.status})`);
+      return await fallbackRes.json();
+    }
+    return await res.json();
+  } catch (err) {
+    console.error('[AbsenceService] getTauxAbsenteismeEtudiant error:', err);
+    return null;
+  }
+};
+
+/**
+ * US12 : Consulter l'emploi du temps hebdomadaire de l'étudiant.
+ */
+export const getEmploiDuTempsEtudiant = async (etudiantId: number): Promise<EmploiDuTemps | null> => {
+  const url = `${API_BASE_URL}/etudiants/${etudiantId}/emploi-du-temps`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Erreur emploi du temps (${res.status})`);
+    return await res.json();
+  } catch (err) {
+    console.error('[AbsenceService] getEmploiDuTempsEtudiant error:', err);
+    return null;
+  }
+};
+
+/**
+ * US12 : Consulter l'emploi du temps par classe.
+ */
+export const getEmploiDuTempsGroupe = async (groupeId: number): Promise<EmploiDuTemps | null> => {
+  const url = `${API_BASE_URL}/groupes/${groupeId}/emploi-du-temps`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Erreur emploi du temps groupe (${res.status})`);
+    return await res.json();
+  } catch (err) {
+    console.error('[AbsenceService] getEmploiDuTempsGroupe error:', err);
+    return null;
+  }
+};
+
 

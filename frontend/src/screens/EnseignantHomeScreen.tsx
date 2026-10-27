@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { UserSession } from '../types/auth';
-import { Groupe, Matiere, Salle, SeanceAujourdhui } from '../types/academic';
+import { Groupe, Matiere, Salle, SeanceAujourdhui, SeanceHistorique } from '../types/academic';
 import { HeaderBar } from '../components/HeaderBar';
 import { theme } from '../theme/theme';
 import {
@@ -23,6 +23,7 @@ import {
   EtudiantItem,
   getAbsentsForSeance,
   getEtudiantsByGroupe,
+  getHistoriqueAbsences,
   getSeancesAujourdhui,
 } from '../services/absenceService';
 import {
@@ -83,6 +84,32 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
   const [selectedJustifId, setSelectedJustifId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState('Certificat non conforme ou délai de 48h dépassé.');
   const [arbitratingId, setArbitratingId] = useState<number | null>(null);
+
+  // US10 : Historique des absences enseignant
+  const [showHistoriqueModal, setShowHistoriqueModal] = useState<boolean>(false);
+  const [historiqueList, setHistoriqueList] = useState<SeanceHistorique[]>([]);
+  const [historiqueLoading, setHistoriqueLoading] = useState<boolean>(false);
+  const [filterHistGroupeId, setFilterHistGroupeId] = useState<number | null>(null);
+  const [filterHistMatiereId, setFilterHistMatiereId] = useState<number | null>(null);
+  const [expandedSeanceId, setExpandedSeanceId] = useState<number | null>(null);
+
+  const loadHistorique = async (grpId?: number | null, matId?: number | null) => {
+    setHistoriqueLoading(true);
+    try {
+      const targetGrp = grpId !== undefined ? grpId : filterHistGroupeId;
+      const targetMat = matId !== undefined ? matId : filterHistMatiereId;
+      const data = await getHistoriqueAbsences({
+        enseignantId: session.enseignantId,
+        groupeId: targetGrp || undefined,
+        matiereId: targetMat || undefined,
+      });
+      setHistoriqueList(data);
+    } catch {
+      setHistoriqueList([]);
+    } finally {
+      setHistoriqueLoading(false);
+    }
+  };
 
   const loadStudentsForGroupe = async (grpId: number, seanceIdToSync?: number) => {
     try {

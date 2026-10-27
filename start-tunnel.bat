@@ -10,7 +10,7 @@ echo [*] Demarrage du Backend et du Frontend en mode TUNNEL...
 echo.
 
 REM 1. Lancement du Backend
-start "Backend Spring Boot" cmd /k "cd /d "%~dp0backend" && mvn spring-boot:run"
+start "Backend Spring Boot" cmd /k "cd /d "%~dp0backend" && if exist mvnw.cmd (mvnw.cmd spring-boot:run) else (mvn spring-boot:run)"
 
 REM 2. Lancement du Frontend avec Tunnel
 start "Frontend Expo (Tunnel)" cmd /k "cd /d "%~dp0frontend" && npx expo start --tunnel"

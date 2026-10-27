@@ -21,6 +21,8 @@ backend/.env
 *.jar
 *.war
 backend/uploads/
+backend/data/
+*.mv.db
 .mvn/timing.properties
 
 # ==========================================

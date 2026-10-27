@@ -266,3 +266,168 @@ export const deleteEnseignant = async (id: number): Promise<{ success: boolean; 
   return data;
 };
 
+// =============================================================================
+// PHASE 2 (AYA BOUHSINI) ADMINISTRATION METHODS
+// =============================================================================
+
+import { AdminAnalytics } from '../types/academic';
+
+/**
+ * US13 : Ajouter un nouvel étudiant par l'administration.
+ */
+export const createEtudiant = async (data: {
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone?: string;
+  motDePasse?: string;
+  matricule: string;
+  cne?: string;
+  groupeId?: number;
+}): Promise<{ success: boolean; message: string; id?: number }> => {
+  const url = `${API_BASE_URL}/admin/etudiants`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const res = await response.json();
+  if (!response.ok) throw new Error(res?.message || "Erreur lors de la création de l'étudiant");
+  return res;
+};
+
+/**
+ * US14 : Modifier les informations d'un étudiant.
+ */
+export const updateEtudiant = async (
+  id: number,
+  data: {
+    nom: string;
+    prenom: string;
+    email: string;
+    telephone?: string;
+    matricule?: string;
+    cne?: string;
+    groupeId?: number;
+    actif?: boolean;
+  }
+): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/etudiants/${id}`;
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const res = await response.json();
+  if (!response.ok) throw new Error(res?.message || "Erreur lors de la mise à jour de l'étudiant");
+  return res;
+};
+
+/**
+ * US15 : Ajouter un enseignant par l'administration.
+ */
+export const createEnseignant = async (data: {
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone?: string;
+  motDePasse?: string;
+  matricule: string;
+  departement?: string;
+  specialite?: string;
+}): Promise<{ success: boolean; message: string; id?: number }> => {
+  const url = `${API_BASE_URL}/admin/enseignants`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const res = await response.json();
+  if (!response.ok) throw new Error(res?.message || "Erreur lors de la création de l'enseignant");
+  return res;
+};
+
+/**
+ * Modifier les informations d'un enseignant.
+ */
+export const updateEnseignant = async (
+  id: number,
+  data: {
+    nom: string;
+    prenom: string;
+    email: string;
+    telephone?: string;
+    matricule?: string;
+    departement?: string;
+    specialite?: string;
+    actif?: boolean;
+  }
+): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/enseignants/${id}`;
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const res = await response.json();
+  if (!response.ok) throw new Error(res?.message || "Erreur lors de la mise à jour de l'enseignant");
+  return res;
+};
+
+/**
+ * US16 : Mettre à jour une classe / groupe.
+ */
+export const updateGroupe = async (
+  id: number,
+  data: {
+    code: string;
+    nom: string;
+    filiere?: string;
+    anneeScolaire?: string;
+    matiereIds?: number[];
+  }
+): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/groupes/${id}`;
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const res = await response.json();
+  if (!response.ok) throw new Error(res?.message || 'Erreur lors de la modification de la classe');
+  return res;
+};
+
+/**
+ * US16 : Gérer les affectations de matières à une classe.
+ */
+export const updateGroupeAffectations = async (
+  id: number,
+  matiereIds: number[]
+): Promise<{ success: boolean; message: string }> => {
+  const url = `${API_BASE_URL}/admin/groupes/${id}/affectations`;
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ matiereIds }),
+  });
+  const res = await response.json();
+  if (!response.ok) throw new Error(res?.message || 'Erreur lors de la mise à jour des affectations');
+  return res;
+};
+
+/**
+ * US17 : Tableau de bord décisionnel & BI d'assiduité globale.
+ */
+export const getAdminAnalytics = async (): Promise<AdminAnalytics | null> => {
+  const url = `${API_BASE_URL}/admin/analytics`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Erreur analytics (${response.status})`);
+    return await response.json();
+  } catch (error) {
+    console.error('[AdminService] getAdminAnalytics error:', error);
+    return null;
+  }
+};
+

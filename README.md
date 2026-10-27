@@ -12,70 +12,32 @@
 
 Le projet suit une **méthodologie séquentielle stricte par phase** pour éliminer toute dépendance circulaire :
 
-1. **Phase 1 — Amine NAHLI (US01 à US09 — 37 SP) :**
+1. **Partie 1 — Amine NAHLI (US01 à US09 — 37 SP) :**
    * **Cœur Opérationnel & Justificatifs (Terminé intégralement en premier).**
    * Authentification multi-profils, feuille d'appel enseignant avec blocage anti-doublon, rectification, consultation et détail des absences pour l'étudiant, et cycle complet des justificatifs (dépôt ≤ 5 Mo, suivi en direct, validation/rejet avec motif).
    * Amine livre une application 100% opérationnelle avec des absences et justificatifs réels.
 
-2. **Phase 2 — Aya BOUHSINI (US10 à US18 — 41 SP) :**
-   * **Analytics, Administration Globale, Emploi du temps & WebSockets (Démarre après la Phase 1).**
-   * Aya attend la livraison de la Phase 1 pour exploiter directement les données réelles enregistrées : historique des absences prof, calcul automatique du taux d'absentéisme et alertes de seuil (> 20%), emploi du temps étudiant, administration complète (étudiants, enseignants, filières), tableaux de bord décisionnels BI de la direction et notifications en temps réel via WebSockets (SockJS / STOMP).
+2. **Partie 2 — Aya BOUHSINI (US10 à US18 — 41 SP) :**
+   * **Analytics, Administration Globale, Emploi du temps & Notifications (Démarre après la Partie 1).**
+   * Aya attend la livraison de la Partie 1 pour exploiter directement les données réelles enregistrées : historique des absences prof, calcul automatique du taux d'absentéisme et alertes de seuil, emploi du temps étudiant, administration complète (étudiants, enseignants, filières), tableaux de bord décisionnels BI de la direction et notifications push.
 
 ![Répartition Séquentielle des User Stories](docs/Répartition%20des%20User%20Stories%20Amine%20et%20Aya.png)
-
-> **Indicateurs Clés du Projet :**
-> - 👥 **2 Membres :** Amine NAHLI & Aya BOUHSINI
-> - 📋 **18 User Stories :** 100% Réalisées
-> - ⚡ **78 Story Points :** Total du projet (37 SP Amine + 41 SP Aya)
 
 Consulter la documentation détaillée dans [docs/](docs/) :
 * [**README_AMINE.md**](docs/README_AMINE.md) : Feuille de route d'Amine (US01 à US09).
 * [**README_AYA.md**](docs/README_AYA.md) : Feuille de route d'Aya (US10 à US18).
+* [**REPARTITION_SEQUENTIELLE.md**](docs/REPARTITION_SEQUENTIELLE.md) : Synthèse méthodologique et diagramme de flux séquentiel.
 * [**DATABASE_SCHEMA.md**](docs/DATABASE_SCHEMA.md) : Schéma relationnel complet Neon PostgreSQL (Mermaid ERD).
 
 ---
 
-## 📋 Répartition Séquentielle des User Stories (78 SP)
+## Tableau Récapitulatif des 18 User Stories (78 SP)
 
-### 🔹 Phase 1 : Amine — Cœur Opérationnel & Justificatifs (Total : 37 SP)
-
-| # | User Story | Description | SP |
-| :---: | :--- | :--- | :---: |
-| **US01** | Authentification & Sécurité | Inscription, connexion, gestion des rôles | **3 SP** |
-| **US02** | Liste des étudiants pour l'appel | Liste filtrable et recherche | **3 SP** |
-| **US03** | Enregistrement absence avec anti-doublon | Validation et contrôle anti-doublon | **5 SP** |
-| **US04** | Consultation des absences (étudiant) | Liste des absences, détails et statut | **5 SP** |
-| **US05** | Détail d'une absence | Informations complètes d'une absence | **2 SP** |
-| **US06** | Dépôt dématérialisé de justificatif | Téléversement (PDF/Photo ≤ 5 Mo) | **8 SP** |
-| **US07** | Suivi en direct du statut justificatif | État en temps réel | **3 SP** |
-| **US08** | Modification / rectification d'absence | Correction par l'enseignant | **3 SP** |
-| **US09** | Validation / Rejet du justificatif | Acceptation ou rejet avec motif | **5 SP** |
-
----
-
-### 🔹 Phase 2 : Aya — Analytics, Admin, Emploi du temps & WebSockets (Total : 41 SP)
-
-| # | User Story | Description | SP |
-| :---: | :--- | :--- | :---: |
-| **US10** | Historique des absences prof | Consultation et filtrage avancé | **5 SP** |
-| **US11** | Taux d'absence & alertes seuil | Calcul automatique et seuil > 20% | **5 SP** |
-| **US12** | Consultation emploi du temps | Planning hebdomadaire dynamique | **5 SP** |
-| **US13** | Création d'étudiant par l'admin | Ajout avec matricule unique | **3 SP** |
-| **US14** | Modification fiche étudiant | Mise à jour des informations | **2 SP** |
-| **US15** | Création compte enseignant | Ajout et gestion des enseignants | **3 SP** |
-| **US16** | Gestion des groupes & affectations | Création des groupes et filières | **5 SP** |
-| **US17** | Statistiques globales & graphiques | Tableaux de bord décisionnels | **8 SP** |
-| **US18** | Notification temps réel (WebSocket) | Notifications instantanées | **5 SP** |
-
----
-
-### 📊 Synthèse du Projet
-
-| Métrique | Valeur |
-| :--- | :---: |
-| **Équipe de développement** | **2 Membres (Amine \| Aya)** |
-| **Total User Stories livrées** | **18 / 18 (100% Réalisées)** |
-| **Story Points totaux** | **78 SP (37 SP Amine + 41 SP Aya)** |
+| Phase | Responsable | Périmètre | User Stories Assignées | Total SP |
+| :---: | :---: | :--- | :--- | :---: |
+| **Partie 1**<br>*(En premier)* | **Amine NAHLI** | **Cœur Opérationnel & Justificatifs** | **US01** Authentification & Sécurité (3 SP)<br>**US02** Liste des étudiants pour l'appel (3 SP)<br>**US03** Saisie d'absence & anti-doublon (5 SP)<br>**US04** Consultation absences étudiant (5 SP)<br>**US05** Détail d'une absence (2 SP)<br>**US06** Dépôt justificatif dématérialisé (8 SP)<br>**US07** Suivi en direct du justificatif (3 SP)<br>**US08** Modification/rectification absence (3 SP)<br>**US09** Validation / Rejet justificatif (5 SP) | **37 SP** |
+| **Partie 2**<br>*(Après Amine)* | **Aya BOUHSINI** | **Analytics, Admin & Notifications** | **US10** Historique des absences prof (5 SP)<br>**US11** Taux absentéisme & alertes seuil (5 SP)<br>**US12** Consultation emploi du temps (5 SP)<br>**US13** Création étudiant par l'admin (3 SP)<br>**US14** Modification fiche étudiant (2 SP)<br>**US15** Création compte enseignant (3 SP)<br>**US16** Gestion groupes & affectations (5 SP)<br>**US17** Statistiques globales & graphiques BI (8 SP)<br>**US18** Alertes & Notifications temps réel via WebSockets SockJS/STOMP (5 SP) | **41 SP** |
+| **TOTAL** | — | **Couverture Globale du Projet** | **18 User Stories** | **78 SP** |
 
 ---
 

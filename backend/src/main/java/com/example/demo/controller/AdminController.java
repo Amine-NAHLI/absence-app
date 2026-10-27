@@ -28,6 +28,7 @@ public class AdminController {
     private final SalleRepository salleRepository;
     private final MatiereRepository matiereRepository;
     private final GroupeRepository groupeRepository;
+    private final SeanceRepository seanceRepository;
 
     // =========================================================================
     // 1. GESTION DES SALLES DE CLASSE
@@ -245,6 +246,86 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("success", true, "message", "Classe supprimée avec succès."));
     }
 
+    /**
+     * US16 : Mettre à jour une classe / groupe (code, nom, filière, année scolaire, matières associées).
+     */
+    @PutMapping("/groupes/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGroupe(@PathVariable Long id, @Valid @RequestBody GroupeUpdateRequest req) {
+        Optional<Groupe> grpOpt = groupeRepository.findById(id);
+        if (grpOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Classe introuvable."));
+        }
+
+        Groupe groupe = grpOpt.get();
+        String cleanCode = req.getCode().trim().toUpperCase();
+
+        if (!cleanCode.equalsIgnoreCase(groupe.getCode()) && groupeRepository.existsByCode(cleanCode)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("success", false, "message", "Une classe avec le code " + cleanCode + " existe déjà."));
+        }
+
+        groupe.setCode(cleanCode);
+        groupe.setNom(req.getNom().trim());
+        if (req.getFiliere() != null && !req.getFiliere().isBlank()) {
+            groupe.setFiliere(req.getFiliere().trim());
+        }
+        if (req.getAnneeScolaire() != null && !req.getAnneeScolaire().isBlank()) {
+            groupe.setAnneeScolaire(req.getAnneeScolaire().trim());
+        }
+
+        if (req.getMatiereIds() != null) {
+            Set<Matiere> matieres = new HashSet<>();
+            for (Long matId : req.getMatiereIds()) {
+                matiereRepository.findById(matId).ifPresent(matieres::add);
+            }
+            groupe.setMatieres(matieres);
+        }
+
+        Groupe saved = groupeRepository.save(groupe);
+        log.info("Classe ID: {} mise à jour avec succès : {}", id, saved.getCode());
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Classe " + saved.getCode() + " mise à jour avec succès.",
+                "id", saved.getId()
+        ));
+    }
+
+    /**
+     * US16 : Gérer les affectations de cours / matières d'une classe.
+     */
+    @PutMapping("/groupes/{id}/affectations")
+    @Transactional
+    public ResponseEntity<?> updateGroupeAffectations(@PathVariable Long id, @RequestBody Map<String, List<Long>> payload) {
+        Optional<Groupe> grpOpt = groupeRepository.findById(id);
+        if (grpOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Classe introuvable."));
+        }
+
+        Groupe groupe = grpOpt.get();
+        List<Long> matiereIds = payload.get("matiereIds");
+        Set<Matiere> matieres = new HashSet<>();
+
+        if (matiereIds != null) {
+            for (Long matId : matiereIds) {
+                matiereRepository.findById(matId).ifPresent(matieres::add);
+            }
+        }
+
+        groupe.setMatieres(matieres);
+        groupeRepository.save(groupe);
+        log.info("Affectations de matières mises à jour pour la classe {} ({} matières)", groupe.getCode(), matieres.size());
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Affectations mises à jour (" + matieres.size() + " modules associés).",
+                "matieresCount", matieres.size()
+        ));
+    }
+
     // =========================================================================
     // 4. DEMANDES D'INSCRIPTION & STATISTIQUES
     // =========================================================================
@@ -349,6 +430,15 @@ public class AdminController {
         long totalSalles = salleRepository.count();
         long demandesEnAttente = userRepository.findByActifFalseOrderByCreatedAtDesc().size();
 
+        long totalSeances = seanceRepository.count();
+        double tauxAssiduiteVal = 95.0;
+        if (totalEtudiants > 0 && totalSeances > 0) {
+            double maxPossibles = totalEtudiants * totalSeances;
+            double abs = (double) totalAbsences;
+            tauxAssiduiteVal = Math.max(0.0, Math.min(100.0, ((maxPossibles - abs) / maxPossibles) * 100.0));
+            tauxAssiduiteVal = Math.round(tauxAssiduiteVal * 10.0) / 10.0;
+        }
+
         return ResponseEntity.ok(Map.of(
                 "totalEtudiants", totalEtudiants,
                 "totalEnseignants", totalEnseignants,
@@ -357,8 +447,157 @@ public class AdminController {
                 "totalModules", totalModules,
                 "totalSalles", totalSalles,
                 "demandesEnAttente", demandesEnAttente,
-                "tauxAssiduite", "95.0%"
+                "tauxAssiduite", String.format(Locale.US, "%.1f%%", tauxAssiduiteVal)
         ));
+    }
+
+    /**
+     * US17 : Consulter les statistiques globales d'absence sous forme décisionnelle graphique (BI).
+     */
+    @GetMapping("/analytics")
+    @Transactional(readOnly = true)
+    public ResponseEntity<AdminAnalyticsDTO> getAdminAnalytics() {
+        log.info("Génération du rapport décisionnel BI d'assiduité");
+
+        List<Etudiant> etudiants = etudiantRepository.findAll();
+        List<Absence> absences = absenceRepository.findAll();
+        List<Groupe> groupes = groupeRepository.findAll();
+        List<Matiere> matieres = matiereRepository.findAll();
+        List<Seance> seances = seanceRepository.findAll();
+        List<Justificatif> justificatifs = justificatifRepository.findAll();
+
+        long totalEtudiants = etudiants.size();
+        long totalEnseignants = enseignantRepository.count();
+        long totalClasses = groupes.size();
+        long totalModules = matieres.size();
+        long totalSalles = salleRepository.count();
+        long totalSeances = seances.size();
+
+        long totalAbs = absences.stream().filter(a -> a.getTypePresence() == TypePresence.ABSENT).count();
+        long totalRetards = absences.stream().filter(a -> a.getTypePresence() == TypePresence.RETARD).count();
+
+        // Taux global
+        double totalPresencesPossibles = Math.max(1, totalEtudiants * Math.max(1, totalSeances));
+        double tauxAbsenteisme = ((totalAbs + (totalRetards / 3.0)) / totalPresencesPossibles) * 100.0;
+        tauxAbsenteisme = Math.min(100.0, Math.round(tauxAbsenteisme * 10.0) / 10.0);
+        double tauxAssiduite = Math.max(0.0, Math.round((100.0 - tauxAbsenteisme) * 10.0) / 10.0);
+
+        // Justificatifs
+        long justifTotal = justificatifs.size();
+        long justifEnAttente = justificatifs.stream().filter(j -> j.getStatut() == StatutJustificatif.EN_ATTENTE).count();
+        long justifValides = justificatifs.stream().filter(j -> j.getStatut() == StatutJustificatif.ACCEPTE).count();
+        long justifRefuses = justificatifs.stream().filter(j -> j.getStatut() == StatutJustificatif.REFUSE).count();
+
+        // Répartition par Groupe
+        List<AdminAnalyticsDTO.GroupeStatDTO> groupeStats = groupes.stream().map(g -> {
+            int eff = (int) etudiants.stream().filter(e -> e.getGroupe() != null && e.getGroupe().getId().equals(g.getId())).count();
+            long grpAbs = absences.stream()
+                    .filter(a -> a.getEtudiant() != null && a.getEtudiant().getGroupe() != null && a.getEtudiant().getGroupe().getId().equals(g.getId()))
+                    .count();
+            long grpSeances = seances.stream().filter(s -> s.getGroupe() != null && s.getGroupe().getId().equals(g.getId())).count();
+            double grpPossibles = Math.max(1, eff * Math.max(1, grpSeances));
+            double gTauxAbs = Math.min(100.0, Math.round(((double) grpAbs / grpPossibles) * 1000.0) / 10.0);
+            double gTauxAss = Math.max(0.0, Math.round((100.0 - gTauxAbs) * 10.0) / 10.0);
+
+            return AdminAnalyticsDTO.GroupeStatDTO.builder()
+                    .groupeId(g.getId())
+                    .code(g.getCode())
+                    .nom(g.getNom())
+                    .filiere(g.getFiliere() != null ? g.getFiliere() : "Génie Informatique")
+                    .effectif(eff)
+                    .totalAbsences(grpAbs)
+                    .tauxAssiduite(gTauxAss)
+                    .tauxAbsenteisme(gTauxAbs)
+                    .build();
+        }).collect(Collectors.toList());
+
+        // Répartition par Filière
+        Map<String, List<AdminAnalyticsDTO.GroupeStatDTO>> byFiliere = groupeStats.stream()
+                .collect(Collectors.groupingBy(g -> g.getFiliere() != null ? g.getFiliere() : "Génie Informatique"));
+
+        List<AdminAnalyticsDTO.FiliereStatDTO> filiereStats = byFiliere.entrySet().stream().map(entry -> {
+            String filiereNom = entry.getKey();
+            List<AdminAnalyticsDTO.GroupeStatDTO> grps = entry.getValue();
+            int effTot = grps.stream().mapToInt(AdminAnalyticsDTO.GroupeStatDTO::getEffectif).sum();
+            long absTot = grps.stream().mapToLong(AdminAnalyticsDTO.GroupeStatDTO::getTotalAbsences).sum();
+            double avgAbs = grps.isEmpty() ? 0.0 : grps.stream().mapToDouble(AdminAnalyticsDTO.GroupeStatDTO::getTauxAbsenteisme).average().orElse(0.0);
+            avgAbs = Math.round(avgAbs * 10.0) / 10.0;
+
+            return AdminAnalyticsDTO.FiliereStatDTO.builder()
+                    .filiere(filiereNom)
+                    .effectif(effTot)
+                    .totalAbsences(absTot)
+                    .tauxAbsenteisme(avgAbs)
+                    .build();
+        }).collect(Collectors.toList());
+
+        // Répartition par Matière
+        List<AdminAnalyticsDTO.MatiereStatDTO> matiereStats = matieres.stream().map(m -> {
+            long matAbs = absences.stream()
+                    .filter(a -> a.getSeance() != null && a.getSeance().getMatiere() != null && a.getSeance().getMatiere().getId().equals(m.getId()))
+                    .count();
+            long matSeances = seances.stream()
+                    .filter(s -> s.getMatiere() != null && s.getMatiere().getId().equals(m.getId()))
+                    .count();
+            double mTaux = matSeances > 0 ? ((double) matAbs / (matSeances * Math.max(1, totalEtudiants))) * 100.0 : 0.0;
+            mTaux = Math.min(100.0, Math.round(mTaux * 10.0) / 10.0);
+
+            return AdminAnalyticsDTO.MatiereStatDTO.builder()
+                    .matiereId(m.getId())
+                    .code(m.getCode())
+                    .nom(m.getNom())
+                    .totalAbsences(matAbs)
+                    .tauxAbsenteisme(mTaux)
+                    .build();
+        }).collect(Collectors.toList());
+
+        // Étudiants en Alerte (> 20% ou le plus d'absences)
+        List<AdminAnalyticsDTO.EtudiantAlerteItemDTO> etudiantsAlerte = etudiants.stream().map(e -> {
+            long eAbs = absences.stream().filter(a -> a.getEtudiant() != null && a.getEtudiant().getId().equals(e.getId())).count();
+            long seancesGrp = (e.getGroupe() != null)
+                    ? seances.stream().filter(s -> s.getGroupe() != null && s.getGroupe().getId().equals(e.getGroupe().getId())).count()
+                    : 0;
+            double totalSeancesConsiderees = Math.max(1, Math.max(seancesGrp, eAbs));
+            double eTaux = Math.min(100.0, Math.round(((double) eAbs / totalSeancesConsiderees) * 1000.0) / 10.0);
+
+            String niveau = eTaux > 20.0 ? "CRITIQUE" : (eTaux >= 10.0 ? "ATTENTION" : "NORMAL");
+
+            return AdminAnalyticsDTO.EtudiantAlerteItemDTO.builder()
+                    .etudiantId(e.getId())
+                    .matricule(e.getMatricule())
+                    .nom(e.getUser() != null ? e.getUser().getNom() : "")
+                    .prenom(e.getUser() != null ? e.getUser().getPrenom() : "")
+                    .groupeCode(e.getGroupe() != null ? e.getGroupe().getCode() : "—")
+                    .totalAbsences(eAbs)
+                    .tauxAbsence(eTaux)
+                    .niveauAlerte(niveau)
+                    .build();
+        })
+        .filter(item -> item.getTotalAbsences() > 0 || item.getTauxAbsence() > 0)
+        .sorted(Comparator.comparingDouble(AdminAnalyticsDTO.EtudiantAlerteItemDTO::getTauxAbsence).reversed())
+        .collect(Collectors.toList());
+
+        return ResponseEntity.ok(AdminAnalyticsDTO.builder()
+                .totalEtudiants(totalEtudiants)
+                .totalEnseignants(totalEnseignants)
+                .totalClasses(totalClasses)
+                .totalModules(totalModules)
+                .totalSalles(totalSalles)
+                .totalSeances(totalSeances)
+                .totalPresences(Math.max(0, (long) totalPresencesPossibles - (totalAbs + totalRetards)))
+                .totalAbsences(totalAbs)
+                .totalRetards(totalRetards)
+                .tauxAssiduiteGlobal(tauxAssiduite)
+                .tauxAbsenteismeGlobal(tauxAbsenteisme)
+                .justificatifsTotal(justifTotal)
+                .justificatifsEnAttente(justifEnAttente)
+                .justificatifsValides(justifValides)
+                .justificatifsRefuses(justifRefuses)
+                .repartitionParFiliere(filiereStats)
+                .repartitionParGroupe(groupeStats)
+                .repartitionParMatiere(matiereStats)
+                .etudiantsEnAlerte(etudiantsAlerte)
+                .build());
     }
 
     /**
@@ -454,6 +693,121 @@ public class AdminController {
     }
 
     /**
+     * US13 : Ajouter un nouvel étudiant par l'administration (avec matricule unique).
+     */
+    @PostMapping("/etudiants")
+    @Transactional
+    public ResponseEntity<?> createEtudiant(@Valid @RequestBody EtudiantCreateRequest req) {
+        String cleanEmail = req.getEmail().trim().toLowerCase();
+        String cleanMatricule = req.getMatricule().trim().toUpperCase();
+
+        if (userRepository.findByEmail(cleanEmail).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("success", false, "message", "Un compte avec l'adresse email " + cleanEmail + " existe déjà."));
+        }
+
+        if (etudiantRepository.findByMatricule(cleanMatricule).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("success", false, "message", "Un étudiant avec le matricule " + cleanMatricule + " existe déjà."));
+        }
+
+        Groupe groupe = null;
+        if (req.getGroupeId() != null) {
+            groupe = groupeRepository.findById(req.getGroupeId()).orElse(null);
+        }
+
+        String password = (req.getMotDePasse() != null && !req.getMotDePasse().isBlank())
+                ? req.getMotDePasse().trim()
+                : "Etudiant123!";
+
+        User user = User.builder()
+                .nom(req.getNom().trim().toUpperCase())
+                .prenom(req.getPrenom().trim())
+                .email(cleanEmail)
+                .telephone(req.getTelephone() != null ? req.getTelephone().trim() : null)
+                .motDePasse(password)
+                .role(Role.ETUDIANT)
+                .actif(true)
+                .build();
+
+        User savedUser = userRepository.save(user);
+
+        Etudiant etudiant = Etudiant.builder()
+                .user(savedUser)
+                .matricule(cleanMatricule)
+                .cne(req.getCne() != null ? req.getCne().trim().toUpperCase() : null)
+                .groupe(groupe)
+                .build();
+
+        Etudiant savedEtudiant = etudiantRepository.save(etudiant);
+        log.info("Étudiant créé avec succès par admin : {} {} (Matricule: {})", savedUser.getNom(), savedUser.getPrenom(), savedEtudiant.getMatricule());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "message", "Étudiant " + savedUser.getPrenom() + " " + savedUser.getNom() + " créé avec succès.",
+                "id", savedEtudiant.getId(),
+                "matricule", savedEtudiant.getMatricule()
+        ));
+    }
+
+    /**
+     * US14 : Modifier les informations d'un étudiant (email, téléphone, classe, matricule, CNE).
+     */
+    @PutMapping("/etudiants/{id}")
+    @Transactional
+    public ResponseEntity<?> updateEtudiant(@PathVariable Long id, @Valid @RequestBody EtudiantUpdateRequest req) {
+        Optional<Etudiant> etuOpt = etudiantRepository.findById(id);
+        if (etuOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Étudiant introuvable."));
+        }
+
+        Etudiant etudiant = etuOpt.get();
+        User user = etudiant.getUser();
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Compte utilisateur introuvable."));
+        }
+
+        String cleanEmail = req.getEmail().trim().toLowerCase();
+        if (!cleanEmail.equalsIgnoreCase(user.getEmail()) && userRepository.findByEmail(cleanEmail).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("success", false, "message", "Cette adresse email est déjà utilisée par un autre compte."));
+        }
+
+        String cleanMatricule = req.getMatricule() != null ? req.getMatricule().trim().toUpperCase() : etudiant.getMatricule();
+        if (!cleanMatricule.equalsIgnoreCase(etudiant.getMatricule())) {
+            Optional<Etudiant> existMat = etudiantRepository.findByMatricule(cleanMatricule);
+            if (existMat.isPresent() && !existMat.get().getId().equals(etudiant.getId())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("success", false, "message", "Ce matricule est déjà attribué à un autre étudiant."));
+            }
+        }
+
+        user.setNom(req.getNom().trim().toUpperCase());
+        user.setPrenom(req.getPrenom().trim());
+        user.setEmail(cleanEmail);
+        if (req.getTelephone() != null) user.setTelephone(req.getTelephone().trim());
+        if (req.getActif() != null) user.setActif(req.getActif());
+        userRepository.save(user);
+
+        etudiant.setMatricule(cleanMatricule);
+        if (req.getCne() != null) etudiant.setCne(req.getCne().trim().toUpperCase());
+        if (req.getGroupeId() != null) {
+            groupeRepository.findById(req.getGroupeId()).ifPresent(etudiant::setGroupe);
+        }
+
+        etudiantRepository.save(etudiant);
+        log.info("Étudiant ID: {} mis à jour avec succès par l'administrateur", id);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Fiche de l'étudiant mise à jour avec succès.",
+                "id", etudiant.getId()
+        ));
+    }
+
+    /**
      * Liste exhaustive de tous les enseignants / professeurs de l'établissement.
      */
     @GetMapping("/enseignants")
@@ -478,6 +832,114 @@ public class AdminController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(dtos);
+    }
+
+    /**
+     * US15 : Ajouter un enseignant par l'administration (département, matière/spécialité).
+     */
+    @PostMapping("/enseignants")
+    @Transactional
+    public ResponseEntity<?> createEnseignant(@Valid @RequestBody EnseignantCreateRequest req) {
+        String cleanEmail = req.getEmail().trim().toLowerCase();
+        String cleanMatricule = req.getMatricule().trim().toUpperCase();
+
+        if (userRepository.findByEmail(cleanEmail).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("success", false, "message", "Un compte avec l'adresse email " + cleanEmail + " existe déjà."));
+        }
+
+        if (enseignantRepository.findByMatricule(cleanMatricule).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("success", false, "message", "Un enseignant avec le matricule " + cleanMatricule + " existe déjà."));
+        }
+
+        String password = (req.getMotDePasse() != null && !req.getMotDePasse().isBlank())
+                ? req.getMotDePasse().trim()
+                : "Prof123!";
+
+        User user = User.builder()
+                .nom(req.getNom().trim().toUpperCase())
+                .prenom(req.getPrenom().trim())
+                .email(cleanEmail)
+                .telephone(req.getTelephone() != null ? req.getTelephone().trim() : null)
+                .motDePasse(password)
+                .role(Role.ENSEIGNANT)
+                .actif(true)
+                .build();
+
+        User savedUser = userRepository.save(user);
+
+        Enseignant enseignant = Enseignant.builder()
+                .user(savedUser)
+                .matricule(cleanMatricule)
+                .departement(req.getDepartement() != null ? req.getDepartement().trim() : "Informatique")
+                .specialite(req.getSpecialite() != null ? req.getSpecialite().trim() : "Génie Logiciel")
+                .build();
+
+        Enseignant savedProf = enseignantRepository.save(enseignant);
+        log.info("Enseignant créé avec succès par admin : Prof. {} {} (Matricule: {})", savedUser.getNom(), savedUser.getPrenom(), savedProf.getMatricule());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "message", "Enseignant Prof. " + savedUser.getPrenom() + " " + savedUser.getNom() + " créé avec succès.",
+                "id", savedProf.getId(),
+                "matricule", savedProf.getMatricule()
+        ));
+    }
+
+    /**
+     * Mettre à jour la fiche d'un enseignant par l'administration.
+     */
+    @PutMapping("/enseignants/{id}")
+    @Transactional
+    public ResponseEntity<?> updateEnseignant(@PathVariable Long id, @Valid @RequestBody EnseignantUpdateRequest req) {
+        Optional<Enseignant> profOpt = enseignantRepository.findById(id);
+        if (profOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Enseignant introuvable."));
+        }
+
+        Enseignant enseignant = profOpt.get();
+        User user = enseignant.getUser();
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "Compte utilisateur introuvable."));
+        }
+
+        String cleanEmail = req.getEmail().trim().toLowerCase();
+        if (!cleanEmail.equalsIgnoreCase(user.getEmail()) && userRepository.findByEmail(cleanEmail).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("success", false, "message", "Cette adresse email est déjà utilisée par un autre compte."));
+        }
+
+        String cleanMatricule = req.getMatricule() != null ? req.getMatricule().trim().toUpperCase() : enseignant.getMatricule();
+        if (!cleanMatricule.equalsIgnoreCase(enseignant.getMatricule())) {
+            Optional<Enseignant> existMat = enseignantRepository.findByMatricule(cleanMatricule);
+            if (existMat.isPresent() && !existMat.get().getId().equals(enseignant.getId())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("success", false, "message", "Ce matricule est déjà attribué à un autre enseignant."));
+            }
+        }
+
+        user.setNom(req.getNom().trim().toUpperCase());
+        user.setPrenom(req.getPrenom().trim());
+        user.setEmail(cleanEmail);
+        if (req.getTelephone() != null) user.setTelephone(req.getTelephone().trim());
+        if (req.getActif() != null) user.setActif(req.getActif());
+        userRepository.save(user);
+
+        enseignant.setMatricule(cleanMatricule);
+        if (req.getDepartement() != null) enseignant.setDepartement(req.getDepartement().trim());
+        if (req.getSpecialite() != null) enseignant.setSpecialite(req.getSpecialite().trim());
+        enseignantRepository.save(enseignant);
+
+        log.info("Enseignant ID: {} mis à jour avec succès par l'administrateur", id);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Fiche de l'enseignant mise à jour avec succès.",
+                "id", enseignant.getId()
+        ));
     }
 
     /**

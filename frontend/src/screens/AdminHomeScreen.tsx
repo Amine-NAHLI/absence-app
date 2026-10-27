@@ -21,6 +21,8 @@ import { HeaderBar } from '../components/HeaderBar';
 import {
   AdminStats,
   accepterDemandeInscription,
+  createEnseignant,
+  createEtudiant,
   createGroupe,
   createMatiere,
   createSalle,
@@ -29,6 +31,7 @@ import {
   deleteGroupe,
   deleteMatiere,
   deleteSalle,
+  getAdminAnalytics,
   getAdminStats,
   getAllEnseignants,
   getAllEtudiants,
@@ -39,6 +42,7 @@ import {
   purgeComplete,
   refuserDemandeInscription,
 } from '../services/adminService';
+import { AdminAnalytics } from '../types/academic';
 import { theme } from '../theme/theme';
 
 interface AdminHomeScreenProps {
@@ -46,7 +50,7 @@ interface AdminHomeScreenProps {
   onLogout: () => void;
 }
 
-type AdminTab = 'DEMANDES' | 'ETUDIANTS' | 'ENSEIGNANTS' | 'GROUPES' | 'MATIERES' | 'SALLES';
+type AdminTab = 'DEMANDES' | 'ETUDIANTS' | 'ENSEIGNANTS' | 'GROUPES' | 'MATIERES' | 'SALLES' | 'ANALYTIQUES';
 
 export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
   session,
@@ -65,6 +69,8 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
   const [etudiants, setEtudiants] = useState<AdminEtudiant[]>([]);
   const [enseignants, setEnseignants] = useState<AdminEnseignant[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // Modal de navigation centrale au milieu de l'écran
   const [showNavModal, setShowNavModal] = useState(false);
@@ -133,6 +139,15 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
       color: '#E11D48',
       bgColor: '#FFE4E6',
     },
+    {
+      key: 'ANALYTIQUES',
+      title: 'Tableau de Bord BI',
+      subtitle: 'Statistiques globales et taux d\'absentéisme',
+      icon: 'bar-chart-2',
+      count: analytics?.etudiantsEnAlerte?.length ?? 0,
+      color: '#7C3AED',
+      bgColor: '#F5F3FF',
+    },
   ];
 
   const currentTabConfig = navTabsConfig.find((t) => t.key === activeTab) || navTabsConfig[0];
@@ -181,6 +196,28 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
   const [salCapacite, setSalCapacite] = useState('35');
   const [salType, setSalType] = useState('LABO');
 
+  // US13 : Formulaire Création Étudiant
+  const [showAddEtudiant, setShowAddEtudiant] = useState(false);
+  const [etuNom, setEtuNom] = useState('');
+  const [etuPrenom, setEtuPrenom] = useState('');
+  const [etuEmail, setEtuEmail] = useState('');
+  const [etuTel, setEtuTel] = useState('');
+  const [etuMatricule, setEtuMatricule] = useState('');
+  const [etuCne, setEtuCne] = useState('');
+  const [etuGroupeId, setEtuGroupeId] = useState<number | undefined>(undefined);
+  const [etuPassword, setEtuPassword] = useState('Etudiant123!');
+
+  // US15 : Formulaire Création Enseignant
+  const [showAddEnseignant, setShowAddEnseignant] = useState(false);
+  const [profNom, setProfNom] = useState('');
+  const [profPrenom, setProfPrenom] = useState('');
+  const [profEmail, setProfEmail] = useState('');
+  const [profTel, setProfTel] = useState('');
+  const [profMatricule, setProfMatricule] = useState('');
+  const [profDept, setProfDept] = useState('Génie Informatique');
+  const [profSpecialite, setProfSpecialite] = useState('');
+  const [profPassword, setProfPassword] = useState('Enseignant123!');
+
   // Chargement global
   const loadAllData = async () => {
     try {
@@ -209,6 +246,19 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
     }
   };
 
+  // US17 : Chargement des analytics BI
+  const loadAnalytics = async () => {
+    setAnalyticsLoading(true);
+    try {
+      const data = await getAdminAnalytics();
+      setAnalytics(data);
+    } catch (e) {
+      console.error('[AdminHomeScreen] Erreur analytics:', e);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadAllData();
   }, []);
@@ -217,6 +267,7 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
     setRefreshing(true);
     setFeedbackMessage(null);
     loadAllData();
+    if (activeTab === 'ANALYTIQUES') loadAnalytics();
   };
 
   // Suppression Étudiant
@@ -257,6 +308,60 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
         },
       },
     ]);
+  };
+
+  // US13 : Création d'un étudiant par l'admin
+  const handleCreateEtudiant = async () => {
+    if (!etuNom.trim() || !etuPrenom.trim() || !etuEmail.trim() || !etuMatricule.trim()) {
+      Alert.alert('Champs obligatoires', 'Veuillez renseigner nom, prénom, email et matricule.');
+      return;
+    }
+    try {
+      await createEtudiant({
+        nom: etuNom.trim(),
+        prenom: etuPrenom.trim(),
+        email: etuEmail.trim().toLowerCase(),
+        telephone: etuTel.trim() || undefined,
+        motDePasse: etuPassword.trim() || 'Etudiant123!',
+        matricule: etuMatricule.trim().toUpperCase(),
+        cne: etuCne.trim().toUpperCase() || undefined,
+        groupeId: etuGroupeId,
+      });
+      setFeedbackMessage(`Étudiant ${etuPrenom} ${etuNom.toUpperCase()} créé avec succès.`);
+      setEtuNom(''); setEtuPrenom(''); setEtuEmail(''); setEtuTel('');
+      setEtuMatricule(''); setEtuCne(''); setEtuGroupeId(undefined);
+      setShowAddEtudiant(false);
+      loadAllData();
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible de créer l\'étudiant.');
+    }
+  };
+
+  // US15 : Création d'un enseignant par l'admin
+  const handleCreateEnseignant = async () => {
+    if (!profNom.trim() || !profPrenom.trim() || !profEmail.trim() || !profMatricule.trim()) {
+      Alert.alert('Champs obligatoires', 'Veuillez renseigner nom, prénom, email et matricule.');
+      return;
+    }
+    try {
+      await createEnseignant({
+        nom: profNom.trim(),
+        prenom: profPrenom.trim(),
+        email: profEmail.trim().toLowerCase(),
+        telephone: profTel.trim() || undefined,
+        motDePasse: profPassword.trim() || 'Enseignant123!',
+        matricule: profMatricule.trim().toUpperCase(),
+        departement: profDept.trim() || 'Génie Informatique',
+        specialite: profSpecialite.trim() || undefined,
+      });
+      setFeedbackMessage(`Enseignant ${profPrenom} ${profNom.toUpperCase()} créé avec succès.`);
+      setProfNom(''); setProfPrenom(''); setProfEmail(''); setProfTel('');
+      setProfMatricule(''); setProfDept('Génie Informatique'); setProfSpecialite('');
+      setShowAddEnseignant(false);
+      loadAllData();
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible de créer l\'enseignant.');
+    }
   };
 
   const filteredEtudiants = etudiants.filter((e) => {
@@ -741,11 +846,74 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
                 <Text style={styles.tabSectionTitle}>
                   ÉTUDIANTS INSCRITS ({filteredEtudiants.length} / {etudiants.length})
                 </Text>
-                <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
-                  <Feather name="rotate-cw" size={13} color="#64748B" />
-                  <Text style={styles.refreshBtnText}>Actualiser</Text>
+                <TouchableOpacity
+                  style={styles.addToggleBtn}
+                  onPress={() => setShowAddEtudiant(!showAddEtudiant)}
+                >
+                  <Feather name={showAddEtudiant ? 'x' : 'plus'} size={14} color="#FFFFFF" />
+                  <Text style={styles.addToggleBtnText}>{showAddEtudiant ? 'Fermer' : 'Nouvel étudiant'}</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* US13 : Formulaire Création Étudiant */}
+              {showAddEtudiant && (
+                <View style={styles.formCard}>
+                  <Text style={styles.formTitle}>Créer un compte Étudiant</Text>
+                  <View style={styles.formRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Prénom *</Text>
+                      <TextInput style={styles.formInput} placeholder="Ex: Mohammed" value={etuPrenom} onChangeText={setEtuPrenom} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Nom *</Text>
+                      <TextInput style={styles.formInput} placeholder="Ex: ALAOUI" value={etuNom} onChangeText={setEtuNom} autoCapitalize="characters" />
+                    </View>
+                  </View>
+                  <View style={styles.formRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Matricule *</Text>
+                      <TextInput style={styles.formInput} placeholder="Ex: GI4-2024-001" value={etuMatricule} onChangeText={setEtuMatricule} autoCapitalize="characters" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>CNE</Text>
+                      <TextInput style={styles.formInput} placeholder="Ex: R130045678" value={etuCne} onChangeText={setEtuCne} autoCapitalize="characters" />
+                    </View>
+                  </View>
+                  <Text style={styles.formLabel}>Email *</Text>
+                  <TextInput style={styles.formInput} placeholder="etudiant@upf.ma" value={etuEmail} onChangeText={setEtuEmail} keyboardType="email-address" autoCapitalize="none" />
+                  <View style={styles.formRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Téléphone</Text>
+                      <TextInput style={styles.formInput} placeholder="06XXXXXXXX" value={etuTel} onChangeText={setEtuTel} keyboardType="phone-pad" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Mot de passe</Text>
+                      <TextInput style={styles.formInput} placeholder="Etudiant123!" value={etuPassword} onChangeText={setEtuPassword} secureTextEntry />
+                    </View>
+                  </View>
+                  <Text style={styles.formLabel}>Classe (optionnel)</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginVertical: 6 }}>
+                    <TouchableOpacity
+                      style={[styles.typeChip, etuGroupeId === undefined && styles.typeChipActive]}
+                      onPress={() => setEtuGroupeId(undefined)}
+                    >
+                      <Text style={[styles.typeChipText, etuGroupeId === undefined && styles.typeChipTextActive]}>Aucune</Text>
+                    </TouchableOpacity>
+                    {groupes.map((g) => (
+                      <TouchableOpacity
+                        key={g.id}
+                        style={[styles.typeChip, etuGroupeId === g.id && styles.typeChipActive]}
+                        onPress={() => setEtuGroupeId(g.id)}
+                      >
+                        <Text style={[styles.typeChipText, etuGroupeId === g.id && styles.typeChipTextActive]}>{g.code}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <TouchableOpacity style={styles.submitFormBtn} onPress={handleCreateEtudiant}>
+                    <Text style={styles.submitFormBtnText}>Créer le compte étudiant</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* Barre de Recherche Étudiant */}
               <View style={styles.searchContainer}>
@@ -858,11 +1026,58 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
                 <Text style={styles.tabSectionTitle}>
                   CORPS ENSEIGNANT ({filteredEnseignants.length} / {enseignants.length})
                 </Text>
-                <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
-                  <Feather name="rotate-cw" size={13} color="#64748B" />
-                  <Text style={styles.refreshBtnText}>Actualiser</Text>
+                <TouchableOpacity
+                  style={styles.addToggleBtn}
+                  onPress={() => setShowAddEnseignant(!showAddEnseignant)}
+                >
+                  <Feather name={showAddEnseignant ? 'x' : 'plus'} size={14} color="#FFFFFF" />
+                  <Text style={styles.addToggleBtnText}>{showAddEnseignant ? 'Fermer' : 'Nouvel enseignant'}</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* US15 : Formulaire Création Enseignant */}
+              {showAddEnseignant && (
+                <View style={styles.formCard}>
+                  <Text style={styles.formTitle}>Créer un compte Enseignant</Text>
+                  <View style={styles.formRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Prénom *</Text>
+                      <TextInput style={styles.formInput} placeholder="Ex: Ahmed" value={profPrenom} onChangeText={setProfPrenom} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Nom *</Text>
+                      <TextInput style={styles.formInput} placeholder="Ex: BENALI" value={profNom} onChangeText={setProfNom} autoCapitalize="characters" />
+                    </View>
+                  </View>
+                  <View style={styles.formRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Matricule *</Text>
+                      <TextInput style={styles.formInput} placeholder="Ex: ENS-2024-01" value={profMatricule} onChangeText={setProfMatricule} autoCapitalize="characters" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Téléphone</Text>
+                      <TextInput style={styles.formInput} placeholder="06XXXXXXXX" value={profTel} onChangeText={setProfTel} keyboardType="phone-pad" />
+                    </View>
+                  </View>
+                  <Text style={styles.formLabel}>Email *</Text>
+                  <TextInput style={styles.formInput} placeholder="enseignant@upf.ma" value={profEmail} onChangeText={setProfEmail} keyboardType="email-address" autoCapitalize="none" />
+                  <View style={styles.formRow}>
+                    <View style={{ flex: 1.5 }}>
+                      <Text style={styles.formLabel}>Département</Text>
+                      <TextInput style={styles.formInput} placeholder="Génie Informatique" value={profDept} onChangeText={setProfDept} />
+                    </View>
+                    <View style={{ flex: 1.5 }}>
+                      <Text style={styles.formLabel}>Spécialité / Module</Text>
+                      <TextInput style={styles.formInput} placeholder="Ex: GL, IA, Réseaux" value={profSpecialite} onChangeText={setProfSpecialite} />
+                    </View>
+                  </View>
+                  <Text style={styles.formLabel}>Mot de passe</Text>
+                  <TextInput style={styles.formInput} placeholder="Enseignant123!" value={profPassword} onChangeText={setProfPassword} secureTextEntry />
+                  <TouchableOpacity style={[styles.submitFormBtn, { backgroundColor: '#059669' }]} onPress={handleCreateEnseignant}>
+                    <Text style={styles.submitFormBtnText}>Créer le compte enseignant</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* Barre de Recherche Professeur */}
               <View style={styles.searchContainer}>
@@ -1314,6 +1529,144 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
                       </Text>
                     </View>
                   ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* =========================================================================
+              US17 : TABLEAU DE BORD BI & ANALYTIQUES
+             ========================================================================= */}
+          {activeTab === 'ANALYTIQUES' && (
+            <View>
+              <View style={styles.tabSectionHeader}>
+                <Text style={styles.tabSectionTitle}>TABLEAU DE BORD DÉCISIONNEL</Text>
+                <TouchableOpacity
+                  style={styles.refreshBtn}
+                  onPress={loadAnalytics}
+                >
+                  <Feather name="refresh-cw" size={13} color="#64748B" />
+                  <Text style={styles.refreshBtnText}>Actualiser</Text>
+                </TouchableOpacity>
+              </View>
+
+              {analyticsLoading ? (
+                <ActivityIndicator size="large" color="#7C3AED" style={{ marginVertical: 30 }} />
+              ) : !analytics ? (
+                <View>
+                  <View style={[styles.emptyCard, { borderColor: '#DDD6FE', backgroundColor: '#FAFAFE' }]}>
+                    <Feather name="bar-chart-2" size={28} color="#7C3AED" />
+                    <Text style={[styles.emptyCardTitle, { color: '#5B21B6' }]}>Tableau de Bord BI</Text>
+                    <Text style={styles.emptyCardSub}>Appuyez sur « Actualiser » pour charger les statistiques globales d'assiduité.</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.submitFormBtn, { backgroundColor: '#7C3AED', marginTop: 8 }]}
+                    onPress={loadAnalytics}
+                  >
+                    <Text style={styles.submitFormBtnText}>Charger les analytics BI</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={{ gap: 12 }}>
+                  {/* KPI GLOBAUX */}
+                  <View style={[styles.formCard, { backgroundColor: '#4C1D95', borderColor: '#5B21B6' }]}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#C4B5FD', letterSpacing: 1.2, marginBottom: 12 }}>📊 INDICATEURS GLOBAUX</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                      {[
+                        { label: 'Taux Assiduité', value: `${analytics.tauxAssiduiteGlobal?.toFixed(1) ?? '—'}%`, color: '#34D399', bg: '#065F46' },
+                        { label: 'Taux Absentéisme', value: `${analytics.tauxAbsenteismeGlobal?.toFixed(1) ?? '—'}%`, color: '#FCA5A5', bg: '#7F1D1D' },
+                        { label: 'Total Absences', value: String(analytics.totalAbsences ?? 0), color: '#FCD34D', bg: '#78350F' },
+                        { label: 'Retards', value: String(analytics.totalRetards ?? 0), color: '#93C5FD', bg: '#1E3A5F' },
+                        { label: 'Justif. validées', value: String(analytics.justificatifsValides ?? 0), color: '#6EE7B7', bg: '#064E3B' },
+                        { label: 'Justif. en attente', value: String(analytics.justificatifsEnAttente ?? 0), color: '#FDE68A', bg: '#713F12' },
+                      ].map((kpi) => (
+                        <View key={kpi.label} style={[{ flex: 1, minWidth: '45%', borderRadius: 8, padding: 10, backgroundColor: kpi.bg }]}>
+                          <Text style={{ fontSize: 19, fontWeight: '900', color: kpi.color }}>{kpi.value}</Text>
+                          <Text style={{ fontSize: 10, color: '#CBD5E1', marginTop: 2 }}>{kpi.label}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* ASSIDUITÉ PAR CLASSE */}
+                  {analytics.repartitionParGroupe && analytics.repartitionParGroupe.length > 0 && (
+                    <View style={styles.formCard}>
+                      <Text style={[styles.formTitle, { color: '#5B21B6' }]}>📈 Assiduité par Classe</Text>
+                      {analytics.repartitionParGroupe.map((g) => {
+                        const taux = Math.min(100, Math.max(0, g.tauxAssiduite ?? 0));
+                        const barColor = taux >= 85 ? '#059669' : taux >= 70 ? '#D97706' : '#DC2626';
+                        return (
+                          <View key={g.groupeId} style={{ marginBottom: 10 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E293B' }}>{g.code} — {g.nom}</Text>
+                              <Text style={{ fontSize: 12, fontWeight: '800', color: barColor }}>{taux.toFixed(1)}%</Text>
+                            </View>
+                            <View style={{ height: 8, backgroundColor: '#E2E8F0', borderRadius: 4, overflow: 'hidden' }}>
+                              <View style={{ height: 8, width: `${taux}%` as any, backgroundColor: barColor, borderRadius: 4 }} />
+                            </View>
+                            <Text style={{ fontSize: 10, color: '#64748B', marginTop: 2 }}>
+                              {g.effectif ?? 0} étudiants • {g.totalAbsences ?? 0} absences
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  {/* ÉTUDIANTS EN ALERTE */}
+                  {analytics.etudiantsEnAlerte && analytics.etudiantsEnAlerte.length > 0 && (
+                    <View style={styles.formCard}>
+                      <Text style={[styles.formTitle, { color: '#B91C1C' }]}>🚨 Étudiants en Alerte d'Absentéisme</Text>
+                      {analytics.etudiantsEnAlerte.slice(0, 10).map((etu) => {
+                        const isCritique = etu.niveauAlerte === 'CRITIQUE';
+                        const isAttention = etu.niveauAlerte === 'ATTENTION';
+                        const alertColor = isCritique ? '#DC2626' : isAttention ? '#D97706' : '#059669';
+                        const alertBg = isCritique ? '#FEF2F2' : isAttention ? '#FFFBEB' : '#ECFDF5';
+                        return (
+                          <View key={etu.etudiantId} style={[styles.itemCard, { borderColor: alertColor, backgroundColor: alertBg, marginBottom: 6 }]}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#1E293B' }}>{etu.nom} {etu.prenom}</Text>
+                                <Text style={{ fontSize: 10.5, color: '#64748B' }}>{etu.groupeCode} • {etu.matricule}</Text>
+                              </View>
+                              <View style={{ alignItems: 'flex-end' }}>
+                                <Text style={{ fontSize: 16, fontWeight: '900', color: alertColor }}>{etu.tauxAbsence?.toFixed(1) ?? '?'}%</Text>
+                                <View style={{ backgroundColor: alertColor, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1, marginTop: 2 }}>
+                                  <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF' }}>{etu.niveauAlerte}</Text>
+                                </View>
+                              </View>
+                            </View>
+                            <View style={{ height: 5, backgroundColor: '#E2E8F0', borderRadius: 3, overflow: 'hidden', marginTop: 6 }}>
+                              <View style={{ height: 5, width: `${Math.min(100, etu.tauxAbsence ?? 0)}%` as any, backgroundColor: alertColor, borderRadius: 3 }} />
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  {/* ABSENTÉISME PAR MATIÈRE */}
+                  {analytics.repartitionParMatiere && analytics.repartitionParMatiere.length > 0 && (
+                    <View style={styles.formCard}>
+                      <Text style={[styles.formTitle, { color: '#0369A1' }]}>📚 Absences par Matière</Text>
+                      {analytics.repartitionParMatiere.slice(0, 8).map((m) => (
+                        <View key={m.matiereId} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                          <View style={[styles.itemTag, { backgroundColor: '#E0F2FE', borderColor: '#BAE6FD', minWidth: 60 }]}>
+                            <Text style={[styles.itemTagText, { color: '#0369A1', fontSize: 9.5 }]}>{m.code}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 11, color: '#334155', fontWeight: '600' }} numberOfLines={1}>{m.nom}</Text>
+                            <View style={{ height: 5, backgroundColor: '#E2E8F0', borderRadius: 3, overflow: 'hidden', marginTop: 2 }}>
+                              <View style={{ height: 5, width: `${Math.min(100, m.tauxAbsenteisme ?? 0)}%` as any, backgroundColor: '#0284C7', borderRadius: 3 }} />
+                            </View>
+                          </View>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#0284C7', minWidth: 40, textAlign: 'right' }}>
+                            {m.totalAbsences ?? 0} abs.
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
               )}
             </View>

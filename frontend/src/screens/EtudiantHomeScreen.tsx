@@ -14,13 +14,24 @@ import * as DocumentPicker from 'expo-document-picker';
 import { UserSession } from '../types/auth';
 import { HeaderBar } from '../components/HeaderBar';
 import { theme } from '../theme/theme';
-import { AbsenceItem, getAbsencesByEtudiant } from '../services/absenceService';
+import { AbsenceItem, getAbsencesByEtudiant, getTauxAbsenteismeEtudiant } from '../services/absenceService';
 import { uploadJustificatif } from '../services/justificatifService';
+import { NotificationBanner } from '../components/NotificationBanner';
+import { EmploiDuTempsScreen } from './EmploiDuTempsScreen';
+import { NotificationItem, TauxAbsenteisme } from '../types/academic';
+import {
+  getNotificationsByEtudiant,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+  subscribeToNotifications,
+} from '../services/notificationService';
 
 interface EtudiantHomeScreenProps {
   session: UserSession;
   onLogout: () => void;
 }
+
+type EtudiantTab = 'ASSIDUITE' | 'EMPLOI_DU_TEMPS' | 'NOTIFICATIONS';
 
 const DEFAULT_ABSENCES: AbsenceItem[] = [
   {
@@ -44,7 +55,11 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
   session,
   onLogout,
 }) => {
+  const [activeTab, setActiveTab] = useState<EtudiantTab>('ASSIDUITE');
   const [absences, setAbsences] = useState<AbsenceItem[]>([]);
+  const [tauxStats, setTauxStats] = useState<TauxAbsenteisme | null>(null);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [liveNotification, setLiveNotification] = useState<NotificationItem | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
@@ -54,22 +69,44 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
   const isAya = session.email?.toLowerCase().includes('aya') || session.prenom?.toLowerCase().includes('aya');
 
   useEffect(() => {
-    loadStudentAbsences();
+    loadStudentData();
+
+    // US18 : Abonnement WebSocket temps réel avec fallback résilient
+    const unsubscribe = subscribeToNotifications({
+      userId: session.userId || session.id,
+      etudiantId: etudiantId,
+      onNotification: (newNotif) => {
+        setLiveNotification(newNotif);
+        loadStudentData();
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [session]);
 
-  const loadStudentAbsences = async () => {
+  const loadStudentData = async () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const data = await getAbsencesByEtudiant(etudiantId);
-      setAbsences(data);
+      const [absData, tData, notifData] = await Promise.all([
+        getAbsencesByEtudiant(etudiantId).catch(() => (isAya ? [] : DEFAULT_ABSENCES)),
+        getTauxAbsenteismeEtudiant(etudiantId).catch(() => null),
+        getNotificationsByEtudiant(etudiantId).catch(() => []),
+      ]);
+      setAbsences(absData);
+      setTauxStats(tData);
+      setNotifications(notifData);
     } catch {
-      // Pour Aya : afficher 0 absence par défaut pour valoriser l'assiduité exemplaire
-      // Pour Amine : afficher la séance GL401 pour tester immédiatement le dépôt US06
       setAbsences(isAya ? [] : DEFAULT_ABSENCES);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadStudentAbsences = () => {
+    loadStudentData();
   };
 
   /**
@@ -166,6 +203,15 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <NotificationBanner
+        notification={liveNotification}
+        onDismiss={() => setLiveNotification(null)}
+        onPress={() => {
+          setLiveNotification(null);
+          setActiveTab('NOTIFICATIONS');
+        }}
+      />
+
       <HeaderBar
         title="Espace Étudiant"
         subtitle={classeName}
@@ -173,6 +219,118 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
         onLogout={onLogout}
       />
 
+      {/* Barre d'onglets de navigation moderne */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'ASSIDUITE' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('ASSIDUITE')}
+          activeOpacity={0.8}
+        >
+          <Feather name="bar-chart-2" size={15} color={activeTab === 'ASSIDUITE' ? '#FFFFFF' : '#64748B'} />
+          <Text style={[styles.tabButtonText, activeTab === 'ASSIDUITE' && styles.tabButtonTextActive]}>
+            Assiduité
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'EMPLOI_DU_TEMPS' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('EMPLOI_DU_TEMPS')}
+          activeOpacity={0.8}
+        >
+          <Feather name="calendar" size={15} color={activeTab === 'EMPLOI_DU_TEMPS' ? '#FFFFFF' : '#64748B'} />
+          <Text style={[styles.tabButtonText, activeTab === 'EMPLOI_DU_TEMPS' && styles.tabButtonTextActive]}>
+            Emploi du Temps
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'NOTIFICATIONS' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('NOTIFICATIONS')}
+          activeOpacity={0.8}
+        >
+          <Feather name="bell" size={15} color={activeTab === 'NOTIFICATIONS' ? '#FFFFFF' : '#64748B'} />
+          <Text style={[styles.tabButtonText, activeTab === 'NOTIFICATIONS' && styles.tabButtonTextActive]}>
+            Alertes
+          </Text>
+          {notifications.filter((n) => !n.lu).length > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>
+                {notifications.filter((n) => !n.lu).length}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Onglet 2 : Emploi du Temps (US12) */}
+      {activeTab === 'EMPLOI_DU_TEMPS' && (
+        <EmploiDuTempsScreen
+          etudiantId={etudiantId}
+          classeName={classeName}
+        />
+      )}
+
+      {/* Onglet 3 : Alertes & Notifications WebSockets (US18) */}
+      {activeTab === 'NOTIFICATIONS' && (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.notifHeaderRow}>
+            <Text style={styles.sectionTitle}>CENTRE DE NOTIFICATIONS ({notifications.length})</Text>
+            {notifications.filter((n) => !n.lu).length > 0 && (
+              <TouchableOpacity
+                style={styles.markAllReadBtn}
+                onPress={async () => {
+                  const uid = session.userId || session.id;
+                  if (uid) {
+                    await markAllNotificationsAsRead(uid);
+                    loadStudentData();
+                  }
+                }}
+              >
+                <Text style={styles.markAllReadText}>Tout marquer comme lu</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {notifications.length === 0 ? (
+            <View style={styles.emptyNotifCard}>
+              <Feather name="bell-off" size={32} color="#94A3B8" />
+              <Text style={styles.emptyNotifTitle}>Aucune notification</Text>
+              <Text style={styles.emptyNotifSub}>Vous recevrez ici vos alertes d'absences en temps réel via WebSockets.</Text>
+            </View>
+          ) : (
+            notifications.map((n) => (
+              <TouchableOpacity
+                key={n.id}
+                style={[styles.notifCard, !n.lu && styles.notifCardUnread]}
+                activeOpacity={0.8}
+                onPress={async () => {
+                  await markNotificationAsRead(n.id);
+                  loadStudentData();
+                }}
+              >
+                <View style={styles.notifIconCircle}>
+                  <Feather
+                    name={n.type === 'RETARD' ? 'clock' : 'alert-circle'}
+                    size={18}
+                    color={n.type === 'RETARD' ? '#D97706' : '#DC2626'}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={styles.notifCardTitle}>{n.titre}</Text>
+                    {!n.lu && <View style={styles.newBadge}><Text style={styles.newBadgeText}>NOUVEAU</Text></View>}
+                  </View>
+                  <Text style={styles.notifCardMsg}>{n.message}</Text>
+                  <Text style={styles.notifCardDate}>{n.dateEnvoi?.replace('T', ' à ')?.substring(0, 16)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
+
+      {/* Onglet 1 : Tableau de Bord Assiduité (US04, US05, US06, US11) */}
+      {activeTab === 'ASSIDUITE' && (
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -206,6 +364,36 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
           </View>
         </View>
 
+        {/* 🚨 US11 : BANNIÈRE D'ALERTE DE SEUIL D'ABSENTÉISME (> 20%) */}
+        {(tauxStats?.seuilDepasse || (tauxStats && tauxStats.tauxAbsenteisme > 20)) && (
+          <View style={styles.criticalAlertCard}>
+            <View style={styles.criticalAlertHeader}>
+              <Feather name="alert-triangle" size={20} color="#DC2626" />
+              <Text style={styles.criticalAlertTitle}>
+                SEUIL CRITIQUE DÉPASSÉ ({tauxStats.tauxAbsenteisme}%)
+              </Text>
+            </View>
+            <Text style={styles.criticalAlertMsg}>
+              {tauxStats.messageAlerte ||
+                "Attention : Votre taux d'absentéisme dépasse la limite réglementaire de 20%. Vous êtes passible d'une convocation en commission de discipline pour élimination du module."}
+            </Text>
+            <View style={styles.alertPillContainer}>
+              <View style={styles.alertPillItem}>
+                <Text style={styles.alertPillNum}>{tauxStats.totalAbsences}</Text>
+                <Text style={styles.alertPillLabel}>Absence(s)</Text>
+              </View>
+              <View style={styles.alertPillItem}>
+                <Text style={styles.alertPillNum}>{tauxStats.totalRetards}</Text>
+                <Text style={styles.alertPillLabel}>Retard(s)</Text>
+              </View>
+              <View style={styles.alertPillItem}>
+                <Text style={styles.alertPillNum}>{tauxStats.heuresAbsenceTotal}h</Text>
+                <Text style={styles.alertPillLabel}>Volume manqué</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* 2. Métriques d'Assiduité Apple FinTech (Grille 2 Colonnes sans coupure) */}
         <View style={styles.kpiContainer}>
           
@@ -213,7 +401,9 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
           <View style={styles.rateCard}>
             <View style={styles.rateContent}>
               <Text style={styles.rateCardLabel}>TAUX D'ASSIDUITÉ GLOBAL</Text>
-              <Text style={styles.rateCardPercent}>{attendanceRate}</Text>
+              <Text style={styles.rateCardPercent}>
+                {tauxStats ? `${tauxStats.tauxAssiduite}%` : attendanceRate}
+              </Text>
               <Text style={styles.rateCardSub}>
                 {totalAbsences === 0 
                   ? 'Félicitations, assiduité exemplaire.' 
@@ -224,7 +414,7 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
               <Feather 
                 name={nonJustifiees === 0 ? "award" : "activity"} 
                 size={24} 
-                color={nonJustifiees === 0 ? "#10B981" : "#2563EB"} 
+                color={nonJustifiees === 0 ? "#10B981" : (tauxStats?.seuilDepasse ? "#DC2626" : "#2563EB")} 
               />
             </View>
           </View>
@@ -263,6 +453,31 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
           </View>
 
         </View>
+
+        {/* US11 : REPARTITION DU TAUX PAR MATIÈRE */}
+        {tauxStats?.repartitionParMatiere && tauxStats.repartitionParMatiere.length > 0 && (
+          <View style={styles.modulesAnalyticsCard}>
+            <View style={styles.moduleCardHeader}>
+              <Feather name="layers" size={16} color="#2563EB" />
+              <Text style={styles.moduleCardTitle}>TAUX D'ABSENCE PAR MODULE (US11)</Text>
+            </View>
+            {tauxStats.repartitionParMatiere.map((mat) => (
+              <View key={mat.matiereId} style={styles.moduleRow}>
+                <View style={styles.moduleInfoCol}>
+                  <Text style={styles.moduleRowName}>{mat.matiereNom}</Text>
+                  <Text style={styles.moduleRowSub}>{mat.matiereCode} • {mat.absences} absence(s) sur {mat.totalSeances} séance(s)</Text>
+                </View>
+                <View style={styles.moduleRateCol}>
+                  <View style={[styles.matRatePill, mat.seuilDepasse ? styles.matRatePillDanger : styles.matRatePillOk]}>
+                    <Text style={[styles.matRatePillText, mat.seuilDepasse ? styles.matRatePillTextDanger : styles.matRatePillTextOk]}>
+                      {mat.tauxAbsence}%
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Bannière Feedback / Succès */}
         {feedbackMessage && (
@@ -450,6 +665,7 @@ export const EtudiantHomeScreen: React.FC<EtudiantHomeScreenProps> = ({
         </View>
 
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -898,5 +1114,261 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: theme.colors.textSecondary,
+  },
+  // --- Phase 2 : Onglets Navigation ---
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    gap: 6,
+  },
+  tabButtonActive: {
+    backgroundColor: '#1E293B',
+  },
+  tabButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  tabButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  unreadBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  unreadBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  // --- US11 : Alerte Seuil Critique > 20% ---
+  criticalAlertCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#F87171',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    ...theme.shadows.subtle,
+  },
+  criticalAlertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  criticalAlertTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#DC2626',
+    letterSpacing: 0.3,
+    flex: 1,
+  },
+  criticalAlertMsg: {
+    fontSize: 12,
+    color: '#991B1B',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  alertPillContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    justifyContent: 'space-around',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  alertPillItem: {
+    alignItems: 'center',
+  },
+  alertPillNum: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#DC2626',
+  },
+  alertPillLabel: {
+    fontSize: 10,
+    color: '#7F1D1D',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  // --- US11 : Répartition par Matière ---
+  modulesAnalyticsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    marginBottom: 16,
+    ...theme.shadows.card,
+  },
+  moduleCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  moduleCardTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1E293B',
+    letterSpacing: 0.4,
+  },
+  moduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  moduleInfoCol: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  moduleRowName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  moduleRowSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  moduleRateCol: {
+    alignItems: 'flex-end',
+  },
+  matRatePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  matRatePillDanger: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+  },
+  matRatePillOk: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  matRatePillText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  matRatePillTextDanger: {
+    color: '#DC2626',
+  },
+  matRatePillTextOk: {
+    color: '#16A34A',
+  },
+  // --- US18 : Notifications Screen Styles ---
+  notifHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  markAllReadBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#EFF6FF',
+  },
+  markAllReadText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  emptyNotifCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 20,
+  },
+  emptyNotifTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptyNotifSub: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  notifCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+    gap: 12,
+  },
+  notifCardUnread: {
+    borderColor: '#BFDBFE',
+    backgroundColor: '#F8FAFF',
+  },
+  notifIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notifCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    flex: 1,
+  },
+  newBadge: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  newBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  notifCardMsg: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  notifCardDate: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 6,
   },
 });

@@ -16,6 +16,7 @@ public interface AbsenceRepository extends JpaRepository<Absence, Long> {
     Optional<Absence> findByEtudiantIdAndSeanceId(Long etudiantId, Long seanceId);
 
     // Espace Étudiant (US04 - tri ante-chronologique)
+    List<Absence> findByEtudiantId(Long etudiantId);
     List<Absence> findByEtudiantIdOrderByDateMarquageDesc(Long etudiantId);
 
     // Espace Enseignant (US02, US10)
