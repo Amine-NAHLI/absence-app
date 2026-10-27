@@ -492,15 +492,29 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
               </View>
             </View>
 
-            {/* Bouton Réserver une Salle / Nouvelle Séance */}
-            <TouchableOpacity
-              style={styles.reserverBtn}
-              onPress={() => setShowReserverModal(true)}
-              activeOpacity={0.8}
-            >
-              <Feather name="plus-circle" size={13} color="#FFFFFF" />
-              <Text style={styles.reserverBtnText}>Réserver une Salle</Text>
-            </TouchableOpacity>
+            {/* Boutons d'Action : Historique (US10) & Réserver une Salle */}
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <TouchableOpacity
+                style={styles.historyTriggerBtn}
+                onPress={() => {
+                  loadHistorique();
+                  setShowHistoriqueModal(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Feather name="archive" size={13} color="#0369A1" />
+                <Text style={styles.historyTriggerBtnText}>Historique (US10)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.reserverBtn}
+                onPress={() => setShowReserverModal(true)}
+                activeOpacity={0.8}
+              >
+                <Feather name="plus-circle" size={13} color="#FFFFFF" />
+                <Text style={styles.reserverBtnText}>Réserver une Salle</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Liste des séances d'aujourd'hui */}
@@ -1067,6 +1081,233 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
                 onPress={handleConfirmReject}
               >
                 <Text style={styles.modalConfirmRejectText}>Confirmer le refus</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* =========================================================================
+          US10 : MODAL HISTORIQUE DES ABSENCES & ASSIDUITÉ PAR CLASSE / MATIÈRE
+         ========================================================================= */}
+      <Modal
+        visible={showHistoriqueModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowHistoriqueModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '90%', maxWidth: 720 }]}>
+            {/* Entête de la modale */}
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Feather name="archive" size={17} color="#0284C7" />
+                  <Text style={styles.modalTitle}>Historique des Séances & Assiduité</Text>
+                </View>
+                <Text style={styles.modalSub}>
+                  US10 : Consultation détaillée des émargements passés et taux de présence
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowHistoriqueModal(false)}
+                style={{ padding: 4 }}
+              >
+                <Feather name="x" size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Filtres par Groupe et par Matière */}
+            <View style={styles.histFiltersBox}>
+              <Text style={styles.histFilterLabel}>Filtrer par promotion :</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginVertical: 6 }}>
+                <TouchableOpacity
+                  style={[styles.histChip, filterHistGroupeId === null && styles.histChipActive]}
+                  onPress={() => {
+                    setFilterHistGroupeId(null);
+                    loadHistorique(null, filterHistMatiereId);
+                  }}
+                >
+                  <Text style={[styles.histChipText, filterHistGroupeId === null && styles.histChipTextActive]}>
+                    Toutes ({groupes.length})
+                  </Text>
+                </TouchableOpacity>
+                {groupes.map((g) => (
+                  <TouchableOpacity
+                    key={g.id}
+                    style={[styles.histChip, filterHistGroupeId === g.id && styles.histChipActive]}
+                    onPress={() => {
+                      setFilterHistGroupeId(g.id);
+                      loadHistorique(g.id, filterHistMatiereId);
+                    }}
+                  >
+                    <Text style={[styles.histChipText, filterHistGroupeId === g.id && styles.histChipTextActive]}>
+                      {g.code}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Liste scrollable des séances historiques */}
+            {historiqueLoading ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#0284C7" />
+                <Text style={{ marginTop: 10, fontSize: 13, color: '#64748B' }}>Chargement de l'historique...</Text>
+              </View>
+            ) : historiqueList.length === 0 ? (
+              <View style={styles.histEmptyBox}>
+                <Feather name="inbox" size={32} color="#94A3B8" />
+                <Text style={styles.histEmptyTitle}>Aucune séance trouvée</Text>
+                <Text style={styles.histEmptySub}>
+                  Aucun émargement n'a été enregistré pour les filtres sélectionnés.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={{ marginTop: 8 }} showsVerticalScrollIndicator={false}>
+                {historiqueList.map((hist) => {
+                  const isExpanded = expandedSeanceId === hist.seanceId;
+                  const presencePct = hist.tauxPresence ?? 100;
+                  const isHighPresence = presencePct >= 80;
+
+                  return (
+                    <View key={hist.seanceId} style={styles.histCard}>
+                      {/* Entête Séance */}
+                      <View style={styles.histCardTop}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.histCardDate}>{hist.dateSeance}</Text>
+                            <View style={styles.histTypeBadge}>
+                              <Text style={styles.histTypeBadgeText}>{hist.typeSeance || 'COURS'}</Text>
+                            </View>
+                            <Text style={styles.histTimeSlot}>{hist.heureDebut?.substring(0, 5)} - {hist.heureFin?.substring(0, 5)}</Text>
+                          </View>
+                          <Text style={styles.histMatiereNom}>{hist.matiereCode} — {hist.matiereNom}</Text>
+                          <Text style={styles.histGroupeNom}>Classe : {hist.groupeCode} • Salle : {hist.salle || 'N/A'}</Text>
+                        </View>
+
+                        {/* Taux de présence */}
+                        <View style={styles.histTauxContainer}>
+                          <Text style={[styles.histTauxNum, { color: isHighPresence ? '#059669' : '#DC2626' }]}>
+                            {presencePct.toFixed(0)}%
+                          </Text>
+                          <Text style={styles.histTauxSub}>Présence</Text>
+                        </View>
+                      </View>
+
+                      {/* Barre de Présence */}
+                      <View style={styles.histProgressBarBg}>
+                        <View
+                          style={[
+                            styles.histProgressBarFill,
+                            {
+                              width: `${Math.min(100, Math.max(0, presencePct))}%` as any,
+                              backgroundColor: isHighPresence ? '#10B981' : '#EF4444',
+                            },
+                          ]}
+                        />
+                      </View>
+
+                      {/* Badges Compteurs */}
+                      <View style={styles.histCountersRow}>
+                        <View style={[styles.histBadge, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                          <Text style={[styles.histBadgeText, { color: '#065F46' }]}>
+                            ✓ {hist.totalPresents} présent(s)
+                          </Text>
+                        </View>
+                        <View style={[styles.histBadge, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+                          <Text style={[styles.histBadgeText, { color: '#991B1B' }]}>
+                            ✗ {hist.totalAbsents} absent(s)
+                          </Text>
+                        </View>
+                        {hist.totalRetards > 0 && (
+                          <View style={[styles.histBadge, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
+                            <Text style={[styles.histBadgeText, { color: '#92400E' }]}>
+                              ⏱ {hist.totalRetards} retard(s)
+                            </Text>
+                          </View>
+                        )}
+
+                        {hist.detailsAbsents && hist.detailsAbsents.length > 0 && (
+                          <TouchableOpacity
+                            style={styles.histToggleDetailsBtn}
+                            onPress={() => setExpandedSeanceId(isExpanded ? null : hist.seanceId)}
+                          >
+                            <Text style={styles.histToggleDetailsText}>
+                              {isExpanded ? 'Masquer la liste' : 'Voir les absents'}
+                            </Text>
+                            <Feather name={isExpanded ? 'chevron-up' : 'chevron-down'} size={13} color="#0284C7" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {/* Accordéon : Liste des absents et statut justificatif */}
+                      {isExpanded && hist.detailsAbsents && hist.detailsAbsents.length > 0 && (
+                        <View style={styles.histDetailsList}>
+                          <Text style={styles.histDetailsHeader}>Étudiants signalés sur cette séance :</Text>
+                          {hist.detailsAbsents.map((abs, idx) => (
+                            <View key={idx} style={styles.histDetailItem}>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.histDetailName}>{abs.nom} {abs.prenom}</Text>
+                                <Text style={styles.histDetailMatricule}>Matricule : {abs.matricule}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                                <View style={[styles.histMiniBadge, { backgroundColor: abs.typePresence === 'RETARD' ? '#FFFBEB' : '#FEF2F2' }]}>
+                                  <Text style={[styles.histMiniBadgeText, { color: abs.typePresence === 'RETARD' ? '#B45309' : '#DC2626' }]}>
+                                    {abs.typePresence}
+                                  </Text>
+                                </View>
+                                <View
+                                  style={[
+                                    styles.histMiniBadge,
+                                    {
+                                      backgroundColor:
+                                        abs.statut === 'JUSTIFIEE'
+                                          ? '#ECFDF5'
+                                          : abs.statut === 'EN_ATTENTE'
+                                          ? '#EFF6FF'
+                                          : '#FEF2F2',
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.histMiniBadgeText,
+                                      {
+                                        color:
+                                          abs.statut === 'JUSTIFIEE'
+                                            ? '#059669'
+                                            : abs.statut === 'EN_ATTENTE'
+                                            ? '#2563EB'
+                                            : '#DC2626',
+                                      },
+                                    ]}
+                                  >
+                                    {abs.statut === 'JUSTIFIEE'
+                                      ? 'Justifiée'
+                                      : abs.statut === 'EN_ATTENTE'
+                                      ? 'En attente'
+                                      : 'Non justifiée'}
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* Bouton de Fermeture */}
+            <View style={{ marginTop: 14, borderTopWidth: 1, borderColor: '#E2E8F0', paddingTop: 12, alignItems: 'flex-end' }}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowHistoriqueModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Fermer</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1874,5 +2115,223 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  // --- US10 : Styles Historique ---
+  historyTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderRadius: theme.radius.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  historyTriggerBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  histFiltersBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.radius.sm,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  histFilterLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  histChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  histChipActive: {
+    backgroundColor: '#0284C7',
+    borderColor: '#0284C7',
+  },
+  histChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  histChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  histEmptyBox: {
+    padding: 32,
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.radius.md,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  histEmptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 8,
+  },
+  histEmptySub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  histCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 10,
+    ...theme.shadows.subtle,
+  },
+  histCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  histCardDate: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  histTypeBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  histTypeBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  histTimeSlot: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  histMatiereNom: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 3,
+  },
+  histGroupeNom: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  histTauxContainer: {
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    minWidth: 60,
+  },
+  histTauxNum: {
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  histTauxSub: {
+    fontSize: 9,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+  histProgressBarBg: {
+    height: 5,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  histProgressBarFill: {
+    height: 5,
+    borderRadius: 3,
+  },
+  histCountersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  histBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  histBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  histToggleDetailsBtn: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  histToggleDetailsText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  histDetailsList: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  histDetailsHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 6,
+  },
+  histDetailItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  histDetailName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  histDetailMatricule: {
+    fontSize: 10,
+    color: '#64748B',
+  },
+  histMiniBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  histMiniBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
   },
 });
