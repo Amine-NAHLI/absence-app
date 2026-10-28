@@ -4,7 +4,7 @@ Ce document décrit l'ensemble des tables, colonnes, contraintes d'intégrité e
 
 ---
 
-## 📊 Diagramme Entité-Relation (Mermaid ERD)
+##  Diagramme Entité-Relation (Mermaid ERD)
 
 ```mermaid
 erDiagram

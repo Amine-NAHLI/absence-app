@@ -482,18 +482,18 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
           <View style={styles.todayHeaderRow}>
             <View style={styles.todayTitleGroup}>
               <View style={styles.todayIconCircle}>
-                <Feather name="calendar" size={15} color="#2563EB" />
+                <Feather name="calendar" size={15} color="#111111" />
               </View>
               <View>
-                <Text style={styles.todaySectionTitle}>SÉANCES D'AUJOURD'HUI</Text>
+                <Text style={styles.todaySectionTitle}>Séances du jour</Text>
                 <Text style={styles.todaySubText}>
-                  {seancesAujourdhui.length} séance(s) programmée(s)
+                  {seancesAujourdhui.length} séance(s)
                 </Text>
               </View>
             </View>
 
-            {/* Boutons d'Action : Historique (US10) & Réserver une Salle */}
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            {/* Boutons d'Action compacts pour Mobile */}
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               <TouchableOpacity
                 style={styles.historyTriggerBtn}
                 onPress={() => {
@@ -502,8 +502,8 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
                 }}
                 activeOpacity={0.8}
               >
-                <Feather name="archive" size={13} color="#0369A1" />
-                <Text style={styles.historyTriggerBtnText}>Historique (US10)</Text>
+                <Feather name="archive" size={12} color="#18181B" />
+                <Text style={styles.historyTriggerBtnText}>Historique</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -511,8 +511,8 @@ export const EnseignantHomeScreen: React.FC<EnseignantHomeScreenProps> = ({
                 onPress={() => setShowReserverModal(true)}
                 activeOpacity={0.8}
               >
-                <Feather name="plus-circle" size={13} color="#FFFFFF" />
-                <Text style={styles.reserverBtnText}>Réserver une Salle</Text>
+                <Feather name="plus" size={13} color="#FFFFFF" />
+                <Text style={styles.reserverBtnText}>Réserver</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1365,12 +1365,12 @@ const styles = StyleSheet.create({
   // Section Séances du Jour
   todaySectionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.lg,
-    padding: 14,
+    borderRadius: 24,
+    padding: 16,
     borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
+    borderColor: '#F4F4F5',
     marginBottom: 16,
-    ...theme.shadows.card,
+    ...theme.shadows.subtle,
   },
   todayHeaderRow: {
     flexDirection: 'row',
@@ -1384,32 +1384,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   todayIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EFF6FF',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F4F4F5',
     justifyContent: 'center',
     alignItems: 'center',
   },
   todaySectionTitle: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: 0.3,
+    color: '#111111',
+    letterSpacing: 0.2,
   },
   todaySubText: {
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: '#71717A',
     marginTop: 1,
   },
   reserverBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: theme.radius.xs,
+    backgroundColor: '#111111',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: theme.radius.pill,
   },
   reserverBtnText: {
     fontSize: 11.5,
@@ -1419,18 +1419,16 @@ const styles = StyleSheet.create({
   emptyTodayBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: 22,
     paddingHorizontal: 16,
     gap: 6,
-    backgroundColor: '#F8FAFC',
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 18,
   },
   emptyTodayTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#18181B',
     marginTop: 4,
   },
   emptyTodaySub: {
@@ -1443,36 +1441,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: theme.radius.xs,
+    backgroundColor: '#111111',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: theme.radius.pill,
     marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
   },
   emptyReserverActionText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: '#FFFFFF',
   },
   seancesScrollRow: {
-    gap: 10,
-    paddingVertical: 2,
+    gap: 12,
+    paddingVertical: 4,
   },
   seanceCardItem: {
     width: 240,
-    backgroundColor: '#F8FAFC',
-    borderRadius: theme.radius.md,
-    padding: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    gap: 7,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    gap: 8,
+    ...theme.shadows.subtle,
   },
   seanceCardItemActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#2563EB',
-    ...theme.shadows.subtle,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#111111',
+    borderWidth: 2,
+    ...theme.shadows.card,
   },
   seanceCardTop: {
     flexDirection: 'row',
@@ -1483,22 +1481,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.pill,
   },
   seanceTimeText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#18181B',
   },
   seanceAppelBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.pill,
   },
   seanceAppelBadgeText: {
     fontSize: 10,
@@ -1507,7 +1503,7 @@ const styles = StyleSheet.create({
   seanceMatiereName: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#111111',
   },
   seanceMetaRow: {
     flexDirection: 'row',
@@ -1519,27 +1515,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.pill,
   },
   seanceMetaPillText: {
     fontSize: 10.5,
-    color: '#475569',
+    color: '#52525B',
     fontWeight: '600',
   },
   seanceActiveRibbon: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#111111',
     alignSelf: 'flex-start',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.pill,
     marginTop: 2,
   },
   seanceActiveRibbonText: {
@@ -1587,12 +1581,12 @@ const styles = StyleSheet.create({
   // Feuille d'appel (Roster)
   rosterCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.lg,
+    borderRadius: 24,
     padding: 16,
     borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
+    borderColor: '#F4F4F5',
     marginBottom: 16,
-    ...theme.shadows.card,
+    ...theme.shadows.subtle,
   },
   rosterHeader: {
     flexDirection: 'row',
@@ -1607,25 +1601,23 @@ const styles = StyleSheet.create({
   rosterTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: theme.colors.textMain,
+    color: '#111111',
     letterSpacing: -0.2,
   },
   statutSeancePill: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: theme.radius.pill,
   },
   statutSeancePillText: {
     fontSize: 9.5,
     fontWeight: '800',
-    color: '#1D4ED8',
+    color: '#18181B',
   },
   rosterCount: {
     fontSize: 11.5,
-    color: theme.colors.textMuted,
+    color: '#71717A',
     marginTop: 2,
     fontWeight: '500',
   },
@@ -1637,10 +1629,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    paddingHorizontal: 8,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: theme.radius.pill,
   },
@@ -1649,9 +1639,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: theme.radius.pill,
   },
@@ -1663,68 +1651,68 @@ const styles = StyleSheet.create({
   counterTextPresent: {
     fontSize: 11,
     fontWeight: '700',
-    color: theme.colors.presentText,
+    color: '#065F46',
   },
   counterTextAbsent: {
     fontSize: 11,
     fontWeight: '700',
-    color: theme.colors.absentText,
+    color: '#991B1B',
   },
   ruleNotice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: theme.colors.infoBoxBg,
-    borderRadius: theme.radius.xs,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     marginBottom: 12,
   },
   ruleNoticeText: {
     flex: 1,
     fontSize: 11,
-    color: theme.colors.infoBoxText,
+    color: '#52525B',
     lineHeight: 15,
   },
   rosterToolsRow: {
     gap: 8,
     marginBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F4F4F5',
     paddingBottom: 10,
   },
   searchStudentBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F8FAFC',
-    borderRadius: theme.radius.xs,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    gap: 8,
+    backgroundColor: '#F4F4F5',
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: 14,
+    height: 44,
   },
   searchStudentInput: {
     flex: 1,
-    fontSize: 12,
-    color: '#0F172A',
+    fontSize: 12.5,
+    color: '#18181B',
     padding: 0,
   },
   quickBulkRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 6,
+    gap: 8,
   },
   quickBulkBtn: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    backgroundColor: '#F4F4F5',
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
   },
   quickBulkBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: '#27272A',
   },
   studentItemRow: {
     flexDirection: 'row',
@@ -1795,15 +1783,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primarySubmitButton: {
-    backgroundColor: theme.colors.primaryDark,
-    borderRadius: theme.radius.sm,
-    paddingVertical: 13,
+    backgroundColor: '#111111',
+    borderRadius: theme.radius.pill,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.subtle,
+    ...theme.shadows.card,
   },
   primarySubmitButtonText: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.2,
@@ -1813,16 +1801,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#F8FAFC',
-    borderRadius: theme.radius.sm,
-    paddingVertical: 10,
+    backgroundColor: '#F4F4F5',
+    borderRadius: theme.radius.pill,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#E4E4E7',
   },
   cloturerButtonText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#475569',
+    color: '#27272A',
   },
   buttonInnerRow: {
     flexDirection: 'row',
@@ -2036,21 +2024,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   choiceChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: '#F4F4F5',
+    borderRadius: theme.radius.pill,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#E4E4E7',
   },
   choiceChipActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: '#111111',
+    borderColor: '#111111',
   },
   choiceChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: '#3F3F46',
   },
   choiceChipTextActive: {
     color: '#FFFFFF',
@@ -2064,12 +2052,12 @@ const styles = StyleSheet.create({
   },
   motifInput: {
     borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.sm,
-    padding: 10,
+    borderColor: '#E4E4E7',
+    borderRadius: 16,
+    padding: 12,
     fontSize: 13,
     color: theme.colors.textMain,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F4F5',
     textAlignVertical: 'top',
     marginBottom: 16,
     minHeight: 70,
@@ -2084,10 +2072,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   modalCancelButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: theme.radius.xs,
-    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: theme.radius.pill,
+    backgroundColor: '#F4F4F5',
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
   },
   modalCancelText: {
     fontSize: 12,
@@ -2095,9 +2085,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   modalConfirmRejectButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: theme.radius.xs,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: theme.radius.pill,
     backgroundColor: '#EF4444',
   },
   modalConfirmRejectText: {
@@ -2106,10 +2096,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   modalConfirmBookingButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: theme.radius.xs,
-    backgroundColor: '#2563EB',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: theme.radius.pill,
+    backgroundColor: '#111111',
   },
   modalConfirmBookingText: {
     fontSize: 12,
@@ -2121,25 +2111,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F4F4F5',
     borderWidth: 1,
-    borderColor: '#BAE6FD',
-    borderRadius: theme.radius.xs,
-    paddingHorizontal: 10,
+    borderColor: '#E4E4E7',
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: 12,
     paddingVertical: 7,
   },
   historyTriggerBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0284C7',
+    color: '#18181B',
   },
   histFiltersBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: theme.radius.sm,
-    padding: 10,
+    backgroundColor: '#F4F4F5',
+    borderRadius: 16,
+    padding: 12,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4E4E7',
   },
   histFilterLabel: {
     fontSize: 11,
@@ -2147,21 +2137,21 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   histChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.radius.pill,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#E4E4E7',
   },
   histChipActive: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
+    backgroundColor: '#111111',
+    borderColor: '#111111',
   },
   histChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#334155',
+    color: '#3F3F46',
   },
   histChipTextActive: {
     color: '#FFFFFF',
@@ -2170,16 +2160,16 @@ const styles = StyleSheet.create({
   histEmptyBox: {
     padding: 32,
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: theme.radius.md,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 20,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4E4E7',
   },
   histEmptyTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#475569',
+    color: '#18181B',
     marginTop: 8,
   },
   histEmptySub: {
@@ -2190,10 +2180,10 @@ const styles = StyleSheet.create({
   },
   histCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.sm,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 12,
+    borderColor: '#E4E4E7',
+    padding: 14,
     marginBottom: 10,
     ...theme.shadows.subtle,
   },

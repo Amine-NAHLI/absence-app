@@ -1,12 +1,12 @@
 /**
- * Design System — FinTech Apple Clean (Light Edition)
- * Inspiré d'Apple iOS & Revolut :
- * - Sécurisation Safe Area native anti-collision d'horloge
- * - Fond gris perle reposant (#F8FAFC) et cartes en blanc pur (#FFFFFF)
- * - Typographie contrastée Slate 900 (#0B132B) et Slate 600 (#475569)
- * - Indicateurs sémantiques doux (Émeraude #10B981, Carmin #EF4444, Ambre #F59E0B)
- * - Grilles métriques aérées à 2 colonnes pour éliminer tout tronquage de texte
- * - Zéro émoji : icônes vectorielles Feather et micro-indicateurs professionnels
+ * Design System — Mobile Luxe & Neo-Minimaliste
+ * Inspiré du design Figma Mobile Clothing & Luxury Store :
+ * - Noir Onyx d'exception (#111111) et Blanc pur (#FFFFFF)
+ * - Fond gris perle ultra-doux (#F9FAFB)
+ * - Formes « Pilule » (Pill shapes : borderRadius 9999) pour tous les boutons & filtres
+ * - Cartes généreusement arrondies (borderRadius 24 - 30)
+ * - Ombres douces et diffuses à faible opacité (Soft Ambient Shadows)
+ * - Typographie contrastée haute fidélité
  */
 
 import { Platform, StatusBar } from 'react-native';
@@ -16,32 +16,32 @@ export const STATUSBAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHe
 export const theme = {
   colors: {
     // Fond & Surfaces
-    background: '#F8FAFC',
+    background: '#F9FAFB',
     card: '#FFFFFF',
     cardElevated: '#FFFFFF',
-    cardBorder: '#E2E8F0',
-    cardBorderSubtle: '#F1F5F9',
-    divider: '#EDF2F7',
+    cardBorder: '#E5E7EB',
+    cardBorderSubtle: '#F3F4F6',
+    divider: '#F4F4F5',
 
-    // Identité Institutionnelle & Actions
-    primaryDark: '#0B132B',         // Deep Navy Apple
-    primaryDarkHover: '#1C2541',
-    primaryAccent: '#2563EB',       // Blue Apple
-    primaryAccentBg: '#EFF6FF',
+    // Identité Luxe / Minimaliste (Onyx Black & Contrôles)
+    primaryDark: '#111111',         // Noir Onyx Figma
+    primaryDarkHover: '#27272A',
+    primaryAccent: '#18181B',
+    primaryAccentBg: '#F4F4F5',
 
     // Boutons & Surfaces Secondaires
-    secondaryButtonBg: '#F8FAFC',
-    secondaryButtonBorder: '#E2E8F0',
-    secondaryButtonText: '#334155',
+    secondaryButtonBg: '#F4F4F5',
+    secondaryButtonBorder: '#E4E4E7',
+    secondaryButtonText: '#18181B',
 
     // Typographie Haute Lisibilité
-    textMain: '#0B132B',
-    textSecondary: '#475569',
-    textMuted: '#64748B',
-    textLight: '#94A3B8',
+    textMain: '#111111',
+    textSecondary: '#52525B',
+    textMuted: '#71717A',
+    textLight: '#A1A1AA',
     textWhite: '#FFFFFF',
 
-    // Indicateurs Sémantiques
+    // Indicateurs Sémantiques (Touches douces)
     presentBg: '#ECFDF5',
     presentBorder: '#A7F3D0',
     presentText: '#065F46',
@@ -58,9 +58,9 @@ export const theme = {
     pendingDot: '#F59E0B',
 
     // Badges Neutres
-    neutralBadgeBg: '#F1F5F9',
-    neutralBadgeBorder: '#E2E8F0',
-    neutralBadgeText: '#334155',
+    neutralBadgeBg: '#F4F4F5',
+    neutralBadgeBorder: '#E4E4E7',
+    neutralBadgeText: '#27272A',
 
     // Boîte d'information & Alertes
     infoBoxBg: '#F0F9FF',
@@ -68,16 +68,16 @@ export const theme = {
     infoBoxText: '#0369A1',
 
     // Formulaires & Inputs
-    inputBg: '#F8FAFC',
-    inputBorder: '#CBD5E1',
-    inputBorderFocused: '#0B132B',
-    placeholder: '#94A3B8',
+    inputBg: '#F9FAFB',
+    inputBorder: '#E4E4E7',
+    inputBorderFocused: '#111111',
+    placeholder: '#A1A1AA',
 
     // Rétrocompatibilité
     mintBg: '#ECFDF5',
     mintText: '#065F46',
-    blueBg: '#EFF6FF',
-    blueText: '#2563EB',
+    blueBg: '#F4F4F5',
+    blueText: '#18181B',
     amberBg: '#FFFBEB',
     amberText: '#92400E',
     roseBg: '#FEF2F2',
@@ -86,35 +86,35 @@ export const theme = {
   },
 
   radius: {
-    xs: 6,
-    sm: 10,
-    md: 14,
-    lg: 18,
-    xl: 24,
-    pill: 999,
+    xs: 8,
+    sm: 12,
+    md: 18,
+    lg: 24,       // Cartes Figma
+    xl: 30,       // Grands conteneurs
+    pill: 9999,   // Boutons et chips pleins
   },
 
   shadows: {
     none: {},
     subtle: {
-      shadowColor: '#0B132B',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.04,
-      shadowRadius: 4,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 6,
       elevation: 1,
     },
     soft: {
-      shadowColor: '#0B132B',
-      shadowOffset: { width: 0, height: 2 },
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.05,
-      shadowRadius: 6,
+      shadowRadius: 12,
       elevation: 2,
     },
     card: {
-      shadowColor: '#0B132B',
-      shadowOffset: { width: 0, height: 4 },
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.06,
-      shadowRadius: 10,
+      shadowRadius: 18,
       elevation: 3,
     },
   },
