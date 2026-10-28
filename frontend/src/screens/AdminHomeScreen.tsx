@@ -263,6 +263,12 @@ export const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({
     loadAllData();
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'ANALYTIQUES' && !analytics) {
+      loadAnalytics();
+    }
+  }, [activeTab, analytics]);
+
   const onRefresh = () => {
     setRefreshing(true);
     setFeedbackMessage(null);
