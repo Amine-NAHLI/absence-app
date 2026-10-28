@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { EnseignantHomeScreen } from './src/screens/EnseignantHomeScreen';
 import { EtudiantHomeScreen } from './src/screens/EtudiantHomeScreen';
@@ -9,6 +9,12 @@ import { UserSession } from './src/types/auth';
 
 export default function App() {
   const [currentSession, setCurrentSession] = useState<UserSession | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = '7ader';
+    }
+  }, []);
 
   const handleLogout = () => {
     console.log('[App] Déconnexion utilisateur');

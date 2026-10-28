@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -201,16 +202,68 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           showsVerticalScrollIndicator={false}
         >
           
-          {/* Header institutionnel Apple FinTech */}
+          {/* Header Mobile Luxe UPF - 7ader */}
           <View style={styles.header}>
-            <View style={styles.brandBadge}>
-              <View style={styles.brandBadgeDot} />
-              <Text style={styles.brandBadgeText}>UNIVERSITÉ PRIVÉE DE FÈS</Text>
+            <Image 
+              source={require('../../assets/upf_logo.png')} 
+              style={styles.logoImage} 
+              resizeMode="contain" 
+            />
+            <View style={styles.brandTitleContainer}>
+              <Text style={styles.screenTitle}>7ader</Text>
+              <View style={styles.presentIndicatorDot} />
             </View>
-            <Text style={styles.screenTitle}>Portail d'Assiduité</Text>
             <Text style={styles.screenSubtitle}>
-              Système de gestion des présences & validation académique
+              Gestion intelligente des présences en temps réel
             </Text>
+          </View>
+
+          {/* Raccourcis de test rapide Mobile */}
+          <View style={styles.quickAccessSection}>
+            <Text style={styles.quickAccessLabel}>Accès rapide test :</Text>
+            <View style={styles.quickAccessRow}>
+              <TouchableOpacity 
+                style={styles.quickAccessPill} 
+                onPress={() => {
+                  setLoginEmail('aya.prof@upf.com');
+                  setLoginPassword('aya123');
+                  setAuthMode('LOGIN');
+                  setErrorMessage(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <Feather name="book-open" size={12} color="#18181B" />
+                <Text style={styles.quickAccessPillText}>Professeur</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.quickAccessPill} 
+                onPress={() => {
+                  setLoginEmail('amine.test@upf.com');
+                  setLoginPassword('amine123');
+                  setAuthMode('LOGIN');
+                  setErrorMessage(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <Feather name="user" size={12} color="#18181B" />
+                <Text style={styles.quickAccessPillText}>Étudiant</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.quickAccessPill} 
+                onPress={() => {
+                  setLoginEmail('admin@upf.ac.ma');
+                  setLoginPassword('admin123');
+                  setAuthMode('LOGIN');
+                  setErrorMessage(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <Feather name="shield" size={12} color="#18181B" />
+                <Text style={styles.quickAccessPillText}>Admin</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Sélecteur d'Onglets Connexion / Inscription */}
@@ -226,7 +279,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <Feather 
                 name="log-in" 
                 size={14} 
-                color={authMode === 'LOGIN' ? theme.colors.primaryDark : theme.colors.textMuted} 
+                color={authMode === 'LOGIN' ? '#FFFFFF' : '#71717A'} 
               />
               <Text style={[styles.tabText, authMode === 'LOGIN' && styles.tabTextActive]}>
                 Se connecter
@@ -246,7 +299,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               <Feather 
                 name="user-plus" 
                 size={14} 
-                color={authMode === 'REGISTER' ? theme.colors.primaryDark : theme.colors.textMuted} 
+                color={authMode === 'REGISTER' ? '#FFFFFF' : '#71717A'} 
               />
               <Text style={[styles.tabText, authMode === 'REGISTER' && styles.tabTextActive]}>
                 Créer un compte
@@ -708,7 +761,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           {/* Mentions institutionnelles */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              UPF Absence • Université Privée de Fès • Direction des Études
+              7ader • Université Privée de Fès
             </Text>
           </View>
 
@@ -723,20 +776,27 @@ const ANDROID_STATUSBAR = Platform.OS === 'android' ? (StatusBar.currentHeight |
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#FFFFFF',
     paddingTop: ANDROID_STATUSBAR + 6,
   },
   keyboardContainer: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 18,
+    flexGrow: 1,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 22,
     paddingVertical: 14,
     paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
     marginBottom: 16,
+  },
+  logoImage: {
+    width: 170,
+    height: 60,
+    marginBottom: 8,
   },
   brandBadge: {
     flexDirection: 'row',
@@ -745,42 +805,91 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: theme.radius.pill,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F4F5',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4E4E7',
     marginBottom: 8,
   },
   brandBadgeDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: theme.colors.primaryAccent,
+    backgroundColor: '#111111',
   },
   brandBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: '#71717A',
     letterSpacing: 0.6,
   },
+  brandTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  presentIndicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    marginTop: 2,
+  },
   screenTitle: {
-    fontSize: 23,
-    fontWeight: '800',
-    color: theme.colors.textMain,
-    letterSpacing: -0.4,
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#111111',
+    letterSpacing: -0.8,
+    textAlign: 'center',
   },
   screenSubtitle: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
+    fontSize: 13,
+    color: '#71717A',
     marginTop: 4,
     fontWeight: '500',
     textAlign: 'center',
+    lineHeight: 18,
+  },
+  quickAccessSection: {
+    marginBottom: 18,
+    alignItems: 'center',
+  },
+  quickAccessLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#A1A1AA',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  quickAccessRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  quickAccessPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+  },
+  quickAccessPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#18181B',
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    borderRadius: theme.radius.sm,
-    padding: 3,
-    marginBottom: 16,
+    backgroundColor: '#F4F4F5',
+    borderRadius: theme.radius.pill,
+    padding: 4,
+    marginBottom: 18,
     gap: 4,
   },
   tabButton: {
@@ -789,27 +898,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    borderRadius: 7,
+    paddingVertical: 11,
+    borderRadius: theme.radius.pill,
   },
   tabButtonActive: {
-    backgroundColor: '#FFFFFF',
-    ...theme.shadows.subtle,
+    backgroundColor: '#111111',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: theme.colors.textMuted,
+    color: '#71717A',
   },
   tabTextActive: {
-    color: theme.colors.primaryDark,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   messageBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    borderRadius: theme.radius.sm,
-    paddingHorizontal: 12,
+    borderRadius: 14,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 14,
     gap: 8,
@@ -874,7 +987,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFBEB',
     borderWidth: 1,
     borderColor: '#FDE68A',
-    borderRadius: theme.radius.sm,
+    borderRadius: 14,
     padding: 12,
     marginBottom: 14,
   },
@@ -891,20 +1004,16 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.lg,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    ...theme.shadows.card,
-    marginBottom: 18,
+    width: '100%',
+    marginBottom: 16,
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.infoBoxBg,
+    backgroundColor: '#F4F4F5',
     borderWidth: 1,
-    borderColor: theme.colors.infoBoxBorder,
-    borderRadius: theme.radius.sm,
+    borderColor: '#E4E4E7',
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 16,
@@ -913,7 +1022,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 11.5,
-    color: theme.colors.infoBoxText,
+    color: '#52525B',
     lineHeight: 16,
     fontWeight: '500',
   },
@@ -943,50 +1052,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    borderRadius: theme.radius.sm,
-    backgroundColor: '#F8FAFC',
+    paddingVertical: 11,
+    borderRadius: theme.radius.pill,
+    backgroundColor: '#F4F4F5',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4E4E7',
   },
   roleChipActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#93C5FD',
+    backgroundColor: '#111111',
+    borderColor: '#111111',
   },
   roleChipText: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: theme.colors.textSecondary,
+    color: '#71717A',
   },
   roleChipTextActive: {
-    color: '#1D4ED8',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   dynamicSelectChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: theme.radius.sm,
-    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: theme.radius.pill,
+    backgroundColor: '#F4F4F5',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4E4E7',
     minWidth: 110,
   },
   dynamicSelectChipActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#3B82F6',
+    backgroundColor: '#111111',
+    borderColor: '#111111',
   },
   dynamicSelectChipText: {
     fontSize: 13,
     fontWeight: '700',
-    color: theme.colors.textMain,
+    color: '#111111',
   },
   dynamicSelectChipTextActive: {
-    color: '#1D4ED8',
+    color: '#FFFFFF',
   },
   dynamicSelectChipSub: {
-    fontSize: 10.5,
-    color: theme.colors.textMuted,
-    marginTop: 2,
+    fontSize: 10,
+    color: '#71717A',
+    marginTop: 1,
   },
   emptySelectorBox: {
     padding: 10,
@@ -1008,16 +1117,16 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   label: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: theme.colors.textMain,
-    marginBottom: 5,
+    color: '#18181B',
+    marginBottom: 6,
   },
   passwordLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 6,
   },
   togglePasswordBtn: {
     flexDirection: 'row',
@@ -1032,29 +1141,34 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F4F5',
     borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.sm,
-    paddingHorizontal: 12,
+    borderColor: '#E4E4E7',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 52,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    paddingVertical: 11,
-    fontSize: 13.5,
-    color: theme.colors.textMain,
+    fontSize: 14,
+    color: '#111111',
+    fontWeight: '500',
   },
   primaryButton: {
-    backgroundColor: theme.colors.primaryDark,
-    borderRadius: theme.radius.sm,
-    paddingVertical: 13,
+    backgroundColor: '#111111',
+    borderRadius: theme.radius.pill,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
-    ...theme.shadows.subtle,
+    marginTop: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -1066,17 +1180,18 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   footer: {
-    marginTop: 14,
+    marginTop: 18,
     alignItems: 'center',
   },
   footerText: {
     fontSize: 11,
-    color: theme.colors.textLight,
+    color: '#A1A1AA',
     textAlign: 'center',
+    lineHeight: 16,
   },
 });

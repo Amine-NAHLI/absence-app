@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../theme/theme';
 
@@ -12,7 +12,7 @@ interface HeaderBarProps {
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
-  title = 'UPF Absence',
+  title = '7ader',
   subtitle,
   userInitial = 'U',
   onLogout,
@@ -21,11 +21,19 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   return (
     <View style={styles.headerWrapper}>
       
-      {/* 1. Ligne Supérieure : Marque Institutionnelle UPF & Date / Badge */}
+      {/* 1. Ligne Supérieure : Logo Officiel UPF & 7ader & Badge Rôle */}
       <View style={styles.topBrandingRow}>
         <View style={styles.universityBadge}>
-          <View style={styles.universityDot} />
-          <Text style={styles.universityBadgeText}>UNIVERSITÉ PRIVÉE DE FÈS</Text>
+          <Image 
+            source={require('../../assets/upf_logo.png')} 
+            style={styles.headerLogoImage} 
+            resizeMode="contain" 
+          />
+          <View style={styles.brandDivider} />
+          <View style={styles.brandRow}>
+            <Text style={styles.brandTitleText}>7ader</Text>
+            <View style={styles.brandDot} />
+          </View>
         </View>
         {subtitle && (
           <View style={styles.roleChip}>
@@ -95,11 +103,10 @@ const styles = StyleSheet.create({
   headerWrapper: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.cardBorder,
-    paddingTop: ANDROID_STATUSBAR + 10,
+    borderBottomColor: '#F4F4F5',
+    paddingTop: ANDROID_STATUSBAR + 8,
     paddingBottom: 12,
-    paddingHorizontal: 18,
-    ...theme.shadows.subtle,
+    paddingHorizontal: 16,
   },
   topBrandingRow: {
     flexDirection: 'row',
@@ -110,32 +117,44 @@ const styles = StyleSheet.create({
   universityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
-  universityDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.primaryAccent,
+  headerLogoImage: {
+    width: 76,
+    height: 24,
   },
-  universityBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
-    letterSpacing: 0.6,
+  brandDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: '#E4E4E7',
+    marginHorizontal: 8,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  brandTitleText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#111111',
+    letterSpacing: -0.4,
+  },
+  brandDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
   },
   roleChip: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   roleChipText: {
     fontSize: 10,
     fontWeight: '700',
-    color: theme.colors.textSecondary,
+    color: '#18181B',
     letterSpacing: 0.2,
   },
   mainNavRow: {
@@ -145,44 +164,42 @@ const styles = StyleSheet.create({
   },
   titleColumn: {
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 8,
   },
   title: {
     fontSize: 20,
-    fontWeight: '800',
-    color: theme.colors.textMain,
-    letterSpacing: -0.4,
+    fontWeight: '900',
+    color: '#111111',
+    letterSpacing: -0.5,
   },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
   },
   actionCircleButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
+    backgroundColor: '#F4F4F5',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   notificationBadgeDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 7,
+    right: 7,
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#EF4444',
   },
   avatarPill: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: theme.colors.primaryDark,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#111111',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 2,
