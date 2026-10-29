@@ -1,3 +1,4 @@
+import { apiClient } from './apiClient';
 import { API_BASE_URL } from '../config/api';
 import { NotificationItem } from '../types/academic';
 
@@ -6,44 +7,34 @@ import { NotificationItem } from '../types/academic';
  */
 
 export const getNotificationsByUser = async (userId: number): Promise<NotificationItem[]> => {
-  const url = `${API_BASE_URL}/notifications/user/${userId}`;
   try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    return await res.json();
-  } catch (err) {
-    console.error('[NotificationService] getNotificationsByUser error:', err);
+    return await apiClient<NotificationItem[]>(`/notifications/user/${userId}`);
+  } catch {
     return [];
   }
 };
 
 export const getNotificationsByEtudiant = async (etudiantId: number): Promise<NotificationItem[]> => {
-  const url = `${API_BASE_URL}/notifications/etudiant/${etudiantId}`;
   try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    return await res.json();
-  } catch (err) {
-    console.error('[NotificationService] getNotificationsByEtudiant error:', err);
+    return await apiClient<NotificationItem[]>(`/notifications/etudiant/${etudiantId}`);
+  } catch {
     return [];
   }
 };
 
 export const markNotificationAsRead = async (id: number): Promise<boolean> => {
-  const url = `${API_BASE_URL}/notifications/${id}/lire`;
   try {
-    const res = await fetch(url, { method: 'PUT' });
-    return res.ok;
+    await apiClient(`/notifications/${id}/lire`, { method: 'PUT' });
+    return true;
   } catch {
     return false;
   }
 };
 
 export const markAllNotificationsAsRead = async (userId: number): Promise<boolean> => {
-  const url = `${API_BASE_URL}/notifications/user/${userId}/tout-lire`;
   try {
-    const res = await fetch(url, { method: 'PUT' });
-    return res.ok;
+    await apiClient(`/notifications/user/${userId}/tout-lire`, { method: 'PUT' });
+    return true;
   } catch {
     return false;
   }

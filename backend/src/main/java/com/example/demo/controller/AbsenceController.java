@@ -47,15 +47,25 @@ public class AbsenceController {
         Seance seance = seanceRepository.findById(request.getSeanceId())
                 .orElse(null);
         if (seance == null) {
+            log.warn("❌ [APPEL REJETÉ] Séance introuvable avec ID: {}", request.getSeanceId());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "Séance introuvable."));
+                    .body(Map.of(
+                            "status", 404,
+                            "error", "Séance introuvable",
+                            "message", "La séance d'appel spécifiée (ID: " + request.getSeanceId() + ") n'existe pas en base."
+                    ));
         }
 
         Enseignant enseignant = enseignantRepository.findById(request.getEnseignantId())
                 .orElse(null);
         if (enseignant == null) {
+            log.warn("❌ [APPEL REJETÉ] Enseignant introuvable avec ID: {}", request.getEnseignantId());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "Enseignant introuvable."));
+                    .body(Map.of(
+                            "status", 404,
+                            "error", "Enseignant introuvable",
+                            "message", "L'enseignant spécifié (ID: " + request.getEnseignantId() + ") n'existe pas."
+                    ));
         }
 
         int enregistres = 0;

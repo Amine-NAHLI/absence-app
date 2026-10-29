@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../config/api';
+import { apiClient } from './apiClient';
 
 export interface JustificatifReviewItem {
   id: number;
@@ -28,8 +28,6 @@ export const uploadJustificatif = async (
   fileName: string,
   mimeType: string
 ): Promise<{ success: boolean; message: string }> => {
-  const url = `${API_BASE_URL}/justificatifs/upload`;
-
   const formData = new FormData();
   formData.append('absenceId', String(absenceId));
   formData.append('etudiantId', String(etudiantId));
@@ -42,35 +40,18 @@ export const uploadJustificatif = async (
   };
   formData.append('file', fileObj);
 
-  const response = await fetch(url, {
+  return apiClient<{ success: boolean; message: string }>('/justificatifs/upload', {
     method: 'POST',
     body: formData,
-    headers: {
-      Accept: 'application/json',
-      // Note : Ne PAS mettre Content-Type ici pour laisser le boundary multipart se générer
-    },
+    // Note : Ne pas forcer Content-Type pour laisser le boundary multipart se générer
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Échec du dépôt (${response.status})`);
-  }
-
-  return response.json();
 };
 
 /**
  * US09 : Obtenir la liste des justificatifs en attente d'arbitrage (Enseignant / Scolarité).
  */
 export const getJustificatifsEnAttente = async (): Promise<JustificatifReviewItem[]> => {
-  const url = `${API_BASE_URL}/justificatifs/en-attente`;
-  const response = await fetch(url, { headers: { Accept: 'application/json' } });
-
-  if (!response.ok) {
-    throw new Error(`Erreur lors du chargement des justificatifs (${response.status})`);
-  }
-
-  return response.json();
+  return apiClient<JustificatifReviewItem[]>('/justificatifs/en-attente');
 };
 
 /**
@@ -82,13 +63,10 @@ export const arbitrerJustificatif = async (
   motif?: string,
   enseignantId?: number
 ): Promise<{ success: boolean; message: string }> => {
-  const url = `${API_BASE_URL}/justificatifs/${justificatifId}/decision`;
-
-  const response = await fetch(url, {
+  return apiClient<{ success: boolean; message: string }>(`/justificatifs/${justificatifId}/decision`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      Accept: 'application/json',
     },
     body: JSON.stringify({
       decision,
@@ -96,13 +74,6 @@ export const arbitrerJustificatif = async (
       enseignantId: enseignantId || 1,
     }),
   });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.message || `Erreur d'arbitrage (${response.status})`);
-  }
-
-  return response.json();
 };
 
 /**
@@ -113,16 +84,10 @@ export const rectifierAbsence = async (
   annuler: boolean = false,
   typePresence: string = 'ABSENT'
 ): Promise<{ success: boolean; message: string }> => {
-  const url = `${API_BASE_URL}/absences/${absenceId}/rectifier?annuler=${annuler}&typePresence=${typePresence}`;
-
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: { Accept: 'application/json' },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Erreur de rectification (${response.status})`);
-  }
-
-  return response.json();
+  return apiClient<{ success: boolean; message: string }>(
+    `/absences/${absenceId}/rectifier?annuler=${annuler}&typePresence=${typePresence}`,
+    {
+      method: 'PUT',
+    }
+  );
 };

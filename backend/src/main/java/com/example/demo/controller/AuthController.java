@@ -46,19 +46,36 @@ public class AuthController {
         User user = userRepository.findByEmail(cleanEmail)
                 .orElse(null);
 
-        // 2. Vérification identifiants
-        if (user == null || !user.getMotDePasse().equals(request.getMotDePasse())) {
-            log.warn("Échec de connexion pour l'email: {}", cleanEmail);
+        // 2. Vérification identifiants avec logs granulaires
+        if (user == null) {
+            log.warn("❌ [AUTH FAILURE] Aucun compte n'existe en base pour l'email: '{}'", cleanEmail);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Identifiants invalides. Vérifiez votre email et mot de passe."));
+                    .body(Map.of(
+                            "status", 401,
+                            "error", "Compte introuvable",
+                            "message", "Aucun compte n'est enregistré avec l'adresse '" + cleanEmail + "'. Vérifiez la saisie ou inscrivez-vous."
+                    ));
+        }
+
+        if (!user.getMotDePasse().equals(request.getMotDePasse())) {
+            log.warn("❌ [AUTH FAILURE] Mot de passe erroné pour l'utilisateur '{}' (ID: {}, Rôle: {})", 
+                    cleanEmail, user.getId(), user.getRole());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of(
+                            "status", 401,
+                            "error", "Mot de passe incorrect",
+                            "message", "Le mot de passe saisi est incorrect pour le compte '" + cleanEmail + "'."
+                    ));
         }
 
         // 3. Vérification compte actif (En attente de validation admin)
         if (!Boolean.TRUE.equals(user.getActif())) {
-            log.warn("Tentative de connexion sur un compte non validé: {}", cleanEmail);
+            log.warn("⚠️ [AUTH PENDING] Tentative de connexion sur un compte non encore validé par l'admin: '{}' (ID: {})", cleanEmail, user.getId());
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of(
-                            "message", "Votre compte est en attente d'approbation par l'administration. Veuillez patienter que l'administrateur valide votre inscription.",
+                            "status", 403,
+                            "error", "Compte en attente",
+                            "message", "Votre compte (" + cleanEmail + ") est en attente d'approbation par la Direction des Études.",
                             "enAttente", true
                     ));
         }
